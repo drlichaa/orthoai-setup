@@ -76,11 +76,11 @@ function pseudonymiser(texte, patient) {
 function EtatServeur({ sante }) {
   if (!sante) return null;
   if (sante.horsLigne) {
-    return <p className="cr-alerte">Serveur local injoignable : lancez l'application avec Demarrer.cmd.</p>;
+    return <p className="cr-alerte">Serveur local injoignable : lancez l'application avec Demarrer (.cmd sur Windows, .command sur Mac).</p>;
   }
   const messages = [];
   const etat = sante.whisper?.etat;
-  if (etat === "absent") messages.push("Whisper n'est pas installé : double-cliquez sur installer-whisper.cmd puis relancez.");
+  if (etat === "absent") messages.push("Whisper n'est pas installé : lancez installer-whisper (.cmd sur Windows, .command sur Mac) puis relancez.");
   if (etat === "demarrage") messages.push("Chargement du modèle de transcription…");
   if (etat === "erreur") messages.push(sante.whisper.erreur || "Whisper est indisponible.");
   if (!sante.cle) messages.push("Clé API absente : renseignez ANTHROPIC_API_KEY dans le fichier .env.");

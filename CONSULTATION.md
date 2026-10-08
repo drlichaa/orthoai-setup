@@ -5,7 +5,7 @@ Application qui écoute la consultation et rédige automatiquement un compte ren
 
 La transcription se fait **en local** sur l'ordinateur avec Whisper : l'audio ne quitte jamais le cabinet.
 
-## Installation (Windows 11, une seule fois)
+## Installation sur Windows 11 (une seule fois)
 
 1. Installer **Node.js** (version LTS) : https://nodejs.org
 2. Télécharger ce projet dans un dossier (ex. `Documents\orthoai`).
@@ -21,10 +21,27 @@ Options de l'installateur (dans un terminal) :
 - `installer-whisper.cmd -Modele small` : modèle plus léger pour un ordinateur peu puissant
   (supprimer alors `whisper\models\ggml-large-v3-turbo-q5_0.bin`, qui reste prioritaire).
 
+## Installation sur Mac (une seule fois)
+
+1. Installer **Node.js** (version LTS) : https://nodejs.org
+2. Installer **Homebrew** : https://brew.sh (copier la commande indiquée dans le Terminal).
+3. Télécharger ce projet dans un dossier.
+4. Double-cliquer sur **`installer-whisper.command`** : installe whisper.cpp (accéléré par la puce
+   du Mac) et télécharge le modèle de transcription (~550 Mo).
+5. Double-cliquer sur **`Demarrer.command`**. Au premier lancement, le fichier `.env` s'ouvre :
+   y coller la clé API Anthropic, enregistrer, puis relancer `Demarrer.command`.
+
+Si macOS refuse d'ouvrir un fichier `.command` (« développeur non identifié ») : clic droit → **Ouvrir**,
+puis confirmer. Si le double-clic ne fait rien, ouvrir le Terminal dans le dossier et taper
+`bash Demarrer.command`.
+
+Un Mac Apple Silicon (M1 ou plus récent) transcrit très rapidement. Sur un Mac Intel, préférer
+le modèle léger : `bash scripts/installer-whisper.sh --modele small`.
+
 ## Utilisation
 
-Double-cliquer sur `Demarrer.cmd` : l'application s'ouvre dans le navigateur (Edge, Chrome ou Firefox).
-Fermer la fenêtre noire pour tout arrêter.
+Double-cliquer sur `Demarrer.cmd` (Windows) ou `Demarrer.command` (Mac) : l'application s'ouvre dans
+le navigateur (Edge, Chrome, Firefox ou Safari). Fermer la fenêtre du terminal pour tout arrêter.
 
 1. Saisir le patient (nom/prénom restent sur l'ordinateur : ils sont remplacés par « [patient] » avant l'envoi).
 2. **Démarrer** l'enregistrement. L'audio est découpé aux silences (~20–45 s) et transcrit au fur et à mesure.
@@ -41,7 +58,7 @@ de chaque appareil (sauvegardés dans le navigateur).
 - `server/whisper.js` : lancement de whisper.cpp et transcription locale
 - `server/prompt.js` : consignes de rédaction et schéma du compte rendu
 - `src/consultation/` : interface (enregistrement, édition, impression, catalogue)
-- `scripts/installer-whisper.ps1`, `scripts/demarrer.js` : installation et lancement
+- `scripts/installer-whisper.ps1` (Windows), `scripts/installer-whisper.sh` (Mac), `scripts/demarrer.js` : installation et lancement
 
 ## Confidentialité
 

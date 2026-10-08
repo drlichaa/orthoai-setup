@@ -1,10 +1,10 @@
 // Transcription locale avec whisper.cpp (aucun son ne quitte l'ordinateur).
-// Si le dossier whisper/ a été installé (scripts/installer-whisper.ps1), le
-// serveur whisper.cpp est lancé automatiquement en arrière-plan.
+// Le serveur whisper.cpp (whisper/bin, ou Homebrew sur Mac) est lancé
+// automatiquement en arrière-plan s'il est installé avec un modèle.
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { cpus } from "node:os";
-import { join, resolve } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 
 const RACINE = resolve(import.meta.dirname, "..", "whisper");
 const PORT_WHISPER = Number(process.env.WHISPER_PORT || 8178);
@@ -35,6 +35,20 @@ function trouverFichier(dossier, test) {
       if (trouve) return trouve;
     } else if (test(entree.name)) {
       return chemin;
+    }
+  }
+  return null;
+}
+
+// whisper/bin (installateur Windows ou compilation), sinon Homebrew / PATH (Mac).
+function trouverExecutable() {
+  if (process.env.WHISPER_BIN) return resolve(process.env.WHISPER_BIN);
+  const local = trouverFichier(join(RACINE, "bin"), (n) => n === "whisper-server.exe" || n === "whisper-server");
+  if (local) return local;
+  const dossiers = [...(process.env.PATH || "").split(delimiter), "/opt/homebrew/bin", "/usr/local/bin"];
+  for (const dossier of dossiers) {
+    for (const nom of ["whisper-server", "whisper-server.exe"]) {
+      if (dossier && existsSync(join(dossier, nom))) return join(dossier, nom);
     }
   }
   return null;
@@ -88,11 +102,11 @@ export async function demarrerWhisper() {
     attendrePret(60_000);
     return `Whisper externe : ${URL_WHISPER}`;
   }
-  const executable = trouverFichier(join(RACINE, "bin"), (n) => n === "whisper-server.exe" || n === "whisper-server");
+  const executable = trouverExecutable();
   const modele = trouverModele();
   if (!executable || !modele) {
     etat = "absent";
-    return "Whisper non installé : lancez installer-whisper.cmd (voir CONSULTATION.md).";
+    return "Whisper non installé : lancez installer-whisper (voir CONSULTATION.md).";
   }
 
   const args = [
@@ -151,7 +165,7 @@ function nettoyer(texte) {
 export async function transcrire(wav) {
   if (etat !== "pret") {
     const raisons = {
-      absent: "Whisper n'est pas installé sur cet ordinateur (lancez installer-whisper.cmd).",
+      absent: "Whisper n'est pas installé sur cet ordinateur (lancez installer-whisper).",
       demarrage: "Whisper est en cours de démarrage, réessayez dans quelques secondes.",
       erreur: derniereErreur || "Whisper est indisponible.",
     };
