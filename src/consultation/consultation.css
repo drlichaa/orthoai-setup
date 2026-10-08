@@ -1,0 +1,112 @@
+:root {
+  --cr-fond: #f5f6f8;
+  --cr-carte: #ffffff;
+  --cr-texte: #1d2433;
+  --cr-doux: #5b6577;
+  --cr-bord: #dde1e8;
+  --cr-accent: #1f6feb;
+  --cr-accent-fond: #e8f0fe;
+  --cr-alerte: #b54708;
+  --cr-alerte-fond: #fff4e5;
+  --cr-danger: #c4320a;
+  --cr-rec: #d92d20;
+  color-scheme: light;
+  font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+  color: var(--cr-texte);
+  background: var(--cr-fond);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--cr-fond); }
+
+.cr-app { max-width: 1100px; margin: 0 auto; padding: 16px; }
+.cr-entete { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cr-entete h1 { font-size: 1.4rem; margin: 0; }
+.cr-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+
+.cr-grille { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 900px) {
+  .cr-grille { grid-template-columns: 1fr 1fr; }
+  .cr-pleine { grid-column: 1 / -1; }
+}
+
+.cr-carte { background: var(--cr-carte); border: 1px solid var(--cr-bord); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.cr-grille .cr-carte { margin-bottom: 0; }
+.cr-carte h2 { font-size: 1.1rem; margin: 0 0 12px; }
+.cr-carte h3 { font-size: 1rem; margin: 20px 0 8px; }
+.cr-titre-section { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.cr-titre-section h2 { margin: 0; }
+
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 600; color: var(--cr-doux); }
+input, textarea, select {
+  font: inherit; font-weight: 400; color: var(--cr-texte); background: #fff;
+  border: 1px solid var(--cr-bord); border-radius: 8px; padding: 8px 10px; width: 100%;
+}
+textarea { resize: vertical; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--cr-accent); outline-offset: -1px; }
+
+.cr-champs-ligne { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+.cr-bloc { margin-top: 12px; }
+.cr-aide { font-size: 0.85rem; color: var(--cr-doux); margin: 8px 0 0; }
+.cr-alerte { background: var(--cr-alerte-fond); color: var(--cr-alerte); border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
+
+button { font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid transparent; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.principal { background: var(--cr-accent); color: #fff; margin-top: 12px; }
+.cr-titre-section button.principal, .cr-actions button.principal { margin-top: 0; }
+button.secondaire { background: #fff; color: var(--cr-texte); border-color: var(--cr-bord); }
+button.danger { background: #fff; color: var(--cr-danger); border-color: var(--cr-bord); }
+
+.cr-enregistrement { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.cr-micro { background: var(--cr-rec); color: #fff; font-size: 1.1rem; padding: 14px 24px; border-radius: 999px; }
+.cr-micro.actif { background: #344054; animation: cr-pulse 1.6s infinite; }
+@keyframes cr-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.5); } 50% { box-shadow: 0 0 0 10px rgba(217, 45, 32, 0); } }
+.cr-chrono { font-variant-numeric: tabular-nums; font-size: 1.4rem; font-weight: 700; }
+.cr-etat { color: var(--cr-doux); }
+
+.cr-details { margin-top: 12px; }
+.cr-details summary { cursor: pointer; color: var(--cr-doux); font-size: 0.9rem; }
+.cr-details textarea { margin-top: 8px; font-size: 0.9rem; }
+
+.cr-verifier { background: var(--cr-alerte-fond); color: var(--cr-alerte); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
+.cr-verifier ul { margin: 6px 0 0; padding-left: 20px; }
+
+.cr-diagnostic { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.cr-encombrement { display: grid; grid-template-columns: 140px 1fr; gap: 8px; }
+
+.cr-appareils { border: 1px solid var(--cr-bord); border-radius: 8px; margin-top: 12px; padding: 10px 14px; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.cr-appareils legend { font-size: 0.85rem; font-weight: 600; color: var(--cr-doux); padding: 0 4px; }
+.cr-case { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--cr-texte); font-size: 0.95rem; }
+.cr-case input { width: auto; }
+
+.cr-appareil-edition { border-top: 1px solid var(--cr-bord); padding-top: 14px; margin-top: 14px; }
+
+/* Document remis au patient */
+.cr-document { background: #fff; color: #111; max-width: 210mm; margin: 24px auto; padding: 18mm 16mm; border: 1px solid var(--cr-bord); box-shadow: 0 4px 16px rgba(0,0,0,0.06); font-size: 11pt; line-height: 1.5; }
+.cr-doc-entete { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #1d2433; padding-bottom: 10px; margin-bottom: 18px; }
+.cr-doc-coord { color: #555; font-size: 9.5pt; }
+.cr-doc-date { white-space: nowrap; }
+.cr-document h1 { font-size: 15pt; text-align: center; margin: 8px 0 14px; }
+.cr-document h2 { font-size: 12pt; border-bottom: 1px solid #ccc; padding-bottom: 3px; margin: 18px 0 8px; }
+.cr-document h3 { font-size: 11pt; margin: 12px 0 4px; }
+.cr-document p { margin: 0 0 8px; }
+.cr-doc-patient { margin-bottom: 10px; }
+.cr-doc-table { border-collapse: collapse; width: 100%; }
+.cr-doc-table th { text-align: left; vertical-align: top; width: 38%; padding: 4px 10px 4px 0; font-weight: 600; }
+.cr-doc-table td { padding: 4px 0; }
+.cr-doc-table tr + tr th, .cr-doc-table tr + tr td { border-top: 1px solid #eee; }
+.cr-doc-appareil { break-inside: avoid; }
+.cr-doc-signature { text-align: right; margin-top: 28px; font-weight: 600; }
+
+@media (max-width: 600px) {
+  .cr-document { padding: 16px; }
+  .cr-doc-table th { width: 45%; }
+}
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body, :root { background: #fff; }
+  .no-print { display: none !important; }
+  .cr-app { padding: 0; max-width: none; }
+  .cr-document { border: 0; box-shadow: none; margin: 0; padding: 0; max-width: none; }
+}
