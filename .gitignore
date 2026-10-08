@@ -25,3 +25,6 @@ dist-ssr
 
 # Clés API
 .env
+
+# Transcription locale (binaires et modèles Whisper)
+whisper/

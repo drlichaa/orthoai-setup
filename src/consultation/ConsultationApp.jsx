@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import APPAREILS_PAR_DEFAUT from "./appareilsParDefaut.js";
-import useDictee, { dicteeDisponible } from "./useDictee.js";
+import useEnregistrement, { enregistrementDisponible } from "./useEnregistrement.js";
 import CompteRendu from "./CompteRendu.jsx";
 import CatalogueAppareils from "./CatalogueAppareils.jsx";
 
@@ -73,6 +73,25 @@ function pseudonymiser(texte, patient) {
   return resultat;
 }
 
+function EtatServeur({ sante }) {
+  if (!sante) return null;
+  if (sante.horsLigne) {
+    return <p className="cr-alerte">Serveur local injoignable : lancez l'application avec Demarrer.cmd.</p>;
+  }
+  const messages = [];
+  const etat = sante.whisper?.etat;
+  if (etat === "absent") messages.push("Whisper n'est pas installé : double-cliquez sur installer-whisper.cmd puis relancez.");
+  if (etat === "demarrage") messages.push("Chargement du modèle de transcription…");
+  if (etat === "erreur") messages.push(sante.whisper.erreur || "Whisper est indisponible.");
+  if (!sante.cle) messages.push("Clé API absente : renseignez ANTHROPIC_API_KEY dans le fichier .env.");
+  if (messages.length === 0) return <p className="cr-ok">Transcription locale prête — l'audio ne quitte pas cet ordinateur.</p>;
+  return messages.map((m) => (
+    <p key={m} className="cr-alerte">
+      {m}
+    </p>
+  ));
+}
+
 export default function ConsultationApp() {
   const [appareils, setAppareils] = useState(() => lireStockage(CLE_APPAREILS, APPAREILS_PAR_DEFAUT));
   const [cabinet, setCabinet] = useState(() =>
@@ -94,16 +113,38 @@ export default function ConsultationApp() {
     if (!texte) return;
     setTranscription((t) => (t ? `${t} ${texte}` : texte));
   }, []);
-  const dictee = useDictee({ onTexteFinal: ajouterTexte });
+  const micro = useEnregistrement({ onTexte: ajouterTexte });
+  const [whisper, setWhisper] = useState(null);
 
   useEffect(() => {
-    if (!dictee.enCours) return undefined;
+    if (!micro.enCours) return undefined;
     const id = setInterval(() => setSecondes((s) => s + 1), 1000);
     return () => clearInterval(id);
-  }, [dictee.enCours]);
+  }, [micro.enCours]);
+
+  // État du serveur local (Whisper prêt ? clé API configurée ?)
+  useEffect(() => {
+    let actif = true;
+    let minuteur;
+    async function verifier() {
+      try {
+        const rep = await fetch("/api/health");
+        const donnees = await rep.json();
+        if (!actif) return;
+        setWhisper(donnees);
+        if (donnees.whisper?.etat === "demarrage") minuteur = setTimeout(verifier, 2000);
+      } catch {
+        if (actif) setWhisper({ horsLigne: true });
+      }
+    }
+    verifier();
+    return () => {
+      actif = false;
+      clearTimeout(minuteur);
+    };
+  }, []);
 
   async function genererCompteRendu() {
-    if (dictee.enCours) dictee.arreter();
     setChargement(true);
     setErreurApi("");
     try {
@@ -133,7 +174,8 @@ export default function ConsultationApp() {
 
   function nouvelleConsultation() {
     if (!window.confirm("Effacer la consultation en cours ?")) return;
-    dictee.arreter();
+    micro.arreter();
+    micro.oublierEchecs();
     setPatient({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
     setTranscription("");
     setNotes("");
@@ -210,25 +252,39 @@ export default function ConsultationApp() {
 
         <section className="cr-carte">
           <h2>Enregistrement</h2>
-          {!dicteeDisponible && (
-            <p className="cr-alerte">
-              La reconnaissance vocale n'est pas disponible dans ce navigateur (utilisez Chrome, Edge ou Safari). Vous
-              pouvez saisir ou dicter vos notes au clavier ci-dessous.
-            </p>
+          <EtatServeur sante={whisper} />
+          {!enregistrementDisponible && (
+            <p className="cr-alerte">L'enregistrement audio n'est pas disponible dans ce navigateur.</p>
           )}
           <div className="cr-enregistrement">
             <button
               type="button"
-              className={dictee.enCours ? "cr-micro actif" : "cr-micro"}
-              onClick={dictee.enCours ? dictee.arreter : dictee.demarrer}
-              disabled={!dicteeDisponible}
+              className={micro.enCours ? "cr-micro actif" : "cr-micro"}
+              onClick={micro.enCours ? micro.arreter : micro.demarrer}
+              disabled={!enregistrementDisponible}
             >
-              {dictee.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
+              {micro.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
             </button>
             <span className="cr-chrono">{formaterDuree(secondes)}</span>
-            <span className="cr-etat">{dictee.enCours ? "Écoute en cours…" : transcription ? "En pause" : "Prêt"}</span>
+            {micro.enCours && (
+              <span className="cr-niveau" aria-hidden="true">
+                <span style={{ width: `${Math.round(micro.niveau * 100)}%` }} />
+              </span>
+            )}
+            <span className="cr-etat">
+              {micro.enCours ? "Écoute en cours…" : transcription ? "En pause" : "Prêt"}
+              {micro.enAttente > 0 && ` · transcription de ${micro.enAttente} segment${micro.enAttente > 1 ? "s" : ""}…`}
+            </span>
           </div>
-          {dictee.erreur && <p className="cr-alerte">{dictee.erreur}</p>}
+          {micro.erreur && <p className="cr-alerte">{micro.erreur}</p>}
+          {micro.echecs > 0 && (
+            <p className="cr-alerte">
+              {micro.echecs} segment{micro.echecs > 1 ? "s" : ""} non transcrit{micro.echecs > 1 ? "s" : ""}.{" "}
+              <button type="button" className="secondaire" onClick={micro.reessayer}>
+                Réessayer
+              </button>
+            </p>
+          )}
           <p className="cr-aide">
             Astuce : dictez clairement vos constats cliniques (« formule dentaire complète », « classe II division 1
             molaire bilatérale », « encombrement modéré à la mandibule »…) ; le reste de la conversation est filtré.
@@ -238,9 +294,9 @@ export default function ConsultationApp() {
             <summary>Transcription brute ({transcription.split(/\s+/).filter(Boolean).length} mots)</summary>
             <textarea
               rows={8}
-              value={transcription + (dictee.provisoire ? ` ${dictee.provisoire}` : "")}
+              value={transcription}
               onChange={(e) => setTranscription(e.target.value)}
-              readOnly={dictee.enCours}
+              readOnly={micro.enCours || micro.enAttente > 0}
             />
           </details>
 
@@ -258,9 +314,15 @@ export default function ConsultationApp() {
             type="button"
             className="principal"
             onClick={genererCompteRendu}
-            disabled={chargement || (!transcription.trim() && !notes.trim())}
+            disabled={chargement || micro.enCours || micro.enAttente > 0 || (!transcription.trim() && !notes.trim())}
           >
-            {chargement ? "Rédaction du compte rendu…" : rapport ? "Régénérer le compte rendu" : "Générer le compte rendu"}
+            {chargement
+              ? "Rédaction du compte rendu…"
+              : micro.enAttente > 0
+                ? "Transcription en cours…"
+                : rapport
+                  ? "Régénérer le compte rendu"
+                  : "Générer le compte rendu"}
           </button>
           {erreurApi && <p className="cr-alerte">{erreurApi}</p>}
         </section>

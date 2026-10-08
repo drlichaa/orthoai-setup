@@ -1,13 +1,16 @@
 // Serveur du compte rendu de première consultation.
-// Reçoit la transcription brute de la consultation et renvoie un compte rendu
-// structuré (JSON) généré par Claude. La clé API reste côté serveur.
+// - /api/transcription : transcrit localement un segment audio avec Whisper.
+// - /api/compte-rendu : transforme la transcription en compte rendu structuré
+//   (JSON) généré par Claude. La clé API reste côté serveur.
 import http from "node:http";
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, buildReportSchema } from "./prompt.js";
+import { demarrerWhisper, etatWhisper, transcrire } from "./whisper.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
 const client = new Anthropic();
 const cleConfiguree = Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
@@ -17,28 +20,31 @@ function sendJson(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function readJsonBody(req) {
+function readBody(req, maxBytes) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
     req.on("data", (chunk) => {
       size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
+      if (size > maxBytes) {
         reject(new Error("Requête trop volumineuse"));
         req.destroy();
         return;
       }
       chunks.push(chunk);
     });
-    req.on("end", () => {
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"));
-      } catch {
-        reject(new Error("JSON invalide"));
-      }
-    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
+}
+
+async function readJsonBody(req) {
+  const brut = await readBody(req, MAX_BODY_BYTES);
+  try {
+    return JSON.parse(brut.toString("utf8") || "{}");
+  } catch {
+    throw new Error("JSON invalide");
+  }
 }
 
 async function generateReport({ transcript, appareils, notes }) {
@@ -84,7 +90,16 @@ async function generateReport({ transcript, appareils, notes }) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/api/health") {
-    return sendJson(res, 200, { ok: true, model: MODEL });
+    return sendJson(res, 200, { ok: true, model: MODEL, cle: cleConfiguree, whisper: etatWhisper() });
+  }
+  if (req.method === "POST" && req.url === "/api/transcription") {
+    try {
+      const wav = await readBody(req, MAX_AUDIO_BYTES);
+      if (wav.length < 44) return sendJson(res, 400, { error: "Audio vide." });
+      return sendJson(res, 200, { texte: await transcrire(wav) });
+    } catch (err) {
+      return sendJson(res, 503, { error: err.message });
+    }
   }
   if (req.method !== "POST" || req.url !== "/api/compte-rendu") {
     return sendJson(res, 404, { error: "Route inconnue" });
@@ -130,4 +145,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Serveur compte rendu prêt sur http://localhost:${PORT} (modèle ${MODEL})`);
   if (!cleConfiguree) console.warn("Attention : ANTHROPIC_API_KEY n'est pas définie (fichier .env).");
+  demarrerWhisper().then((message) => console.log(message));
 });
