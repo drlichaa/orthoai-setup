@@ -52,6 +52,15 @@ le navigateur (Edge, Chrome, Firefox ou Safari). Fermer la fenêtre du terminal 
 Le bouton « Appareils & cabinet » permet de modifier l'en-tête et les textes pré-enregistrés
 de chaque appareil (sauvegardés dans le navigateur).
 
+## Mettre à jour l'application (Mac)
+
+Dans le Terminal :
+```
+cd ~/Documents/orthoai
+bash mettre-a-jour.command
+```
+La clé (`.env`), Whisper et ses modèles sont conservés.
+
 ## Fichiers
 
 - `server/index.js` : serveur local (`/api/transcription`, `/api/compte-rendu`)

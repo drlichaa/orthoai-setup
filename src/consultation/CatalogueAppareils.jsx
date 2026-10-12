@@ -50,7 +50,7 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
 
       <section className="cr-carte">
         <h2>En-tête du compte rendu</h2>
-        <div className="cr-champs-ligne">
+        <div className="cr-champs-ligne cr-champs-larges">
           <label>
             Praticien
             <input
@@ -64,11 +64,27 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
             <input value={cabinet.cabinet} onChange={(e) => onCabinetChange({ ...cabinet, cabinet: e.target.value })} />
           </label>
           <label>
-            Coordonnées
+            Adresse
             <input
               value={cabinet.coordonnees}
-              placeholder="Adresse · téléphone"
+              placeholder="Adresse"
               onChange={(e) => onCabinetChange({ ...cabinet, coordonnees: e.target.value })}
+            />
+          </label>
+          <label>
+            Téléphone
+            <input
+              type="tel"
+              value={cabinet.telephone}
+              onChange={(e) => onCabinetChange({ ...cabinet, telephone: e.target.value })}
+            />
+          </label>
+          <label>
+            E-mail
+            <input
+              type="email"
+              value={cabinet.email}
+              onChange={(e) => onCabinetChange({ ...cabinet, email: e.target.value })}
             />
           </label>
         </div>

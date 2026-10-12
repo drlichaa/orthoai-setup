@@ -6,6 +6,7 @@ import CatalogueAppareils from "./CatalogueAppareils.jsx";
 
 const CLE_APPAREILS = "cr-ortho:appareils";
 const CLE_CABINET = "cr-ortho:cabinet";
+const CABINET_VIDE = { praticien: "", cabinet: "", coordonnees: "", telephone: "", email: "" };
 
 const CHAMPS_DIAGNOSTIC = [
   ["formule_dentaire", "Formule dentaire"],
@@ -94,9 +95,7 @@ function EtatServeur({ sante }) {
 
 export default function ConsultationApp() {
   const [appareils, setAppareils] = useState(() => lireStockage(CLE_APPAREILS, APPAREILS_PAR_DEFAUT));
-  const [cabinet, setCabinet] = useState(() =>
-    lireStockage(CLE_CABINET, { praticien: "", cabinet: "", coordonnees: "" }),
-  );
+  const [cabinet, setCabinet] = useState(() => ({ ...CABINET_VIDE, ...lireStockage(CLE_CABINET, {}) }));
   const [patient, setPatient] = useState({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");

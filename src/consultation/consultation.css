@@ -114,3 +114,4 @@ button.danger { background: #fff; color: var(--cr-danger); border-color: var(--c
 .cr-ok { color: #067647; background: #ecfdf3; border-radius: 8px; padding: 8px 12px; font-size: 0.9rem; }
 .cr-niveau { width: 80px; height: 8px; background: var(--cr-bord); border-radius: 4px; overflow: hidden; }
 .cr-niveau span { display: block; height: 100%; background: #12b76a; transition: width 0.1s; }
+.cr-champs-larges { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }

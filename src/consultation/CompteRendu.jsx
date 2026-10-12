@@ -31,6 +31,11 @@ export default function CompteRendu({ rapport, patient, cabinet, appareils }) {
           {cabinet.praticien && <strong>{cabinet.praticien}</strong>}
           {cabinet.cabinet && <div>{cabinet.cabinet}</div>}
           {cabinet.coordonnees && <div className="cr-doc-coord">{cabinet.coordonnees}</div>}
+          {(cabinet.telephone || cabinet.email) && (
+            <div className="cr-doc-coord">
+              {[cabinet.telephone && `Tél. ${cabinet.telephone}`, cabinet.email].filter(Boolean).join(" · ")}
+            </div>
+          )}
         </div>
         <div className="cr-doc-date">Le {formaterDate(patient.date)}</div>
       </header>
