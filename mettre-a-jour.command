@@ -18,4 +18,9 @@ cp -R "$SOURCE"/. ./
 echo "Installation des dépendances..."
 npm install --no-audit --no-fund --loglevel=error
 echo ""
-echo "Mise à jour terminée. Relancez l'application avec Demarrer.command."
+if [ -d /Applications/OrthoAI.app ]; then
+  echo "Mise à jour de l'application OrthoAI..."
+  bash creer-application.command
+else
+  echo "Mise à jour terminée."
+fi

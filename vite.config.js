@@ -10,12 +10,13 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         consultation: resolve(import.meta.dirname, 'consultation.html'),
+        accueil: resolve(import.meta.dirname, 'accueil.html'),
       },
     },
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8787',
+      '/api': 'http://127.0.0.1:8787',
     },
   },
 })

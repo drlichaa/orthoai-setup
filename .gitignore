@@ -28,3 +28,6 @@ dist-ssr
 
 # Transcription locale (binaires et modèles Whisper)
 whisper/
+
+# Application compilée
+release/

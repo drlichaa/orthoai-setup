@@ -5,8 +5,8 @@ import { spawn } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { cpus } from "node:os";
 import { delimiter, join, resolve } from "node:path";
+import { dossierWhisper } from "./chemins.js";
 
-const RACINE = resolve(import.meta.dirname, "..", "whisper");
 const PORT_WHISPER = Number(process.env.WHISPER_PORT || 8178);
 const URL_WHISPER = process.env.WHISPER_URL || `http://127.0.0.1:${PORT_WHISPER}`;
 
@@ -41,7 +41,7 @@ function trouverFichier(dossier, test) {
 }
 
 // whisper/bin (installateur Windows ou compilation), sinon Homebrew / PATH (Mac).
-function trouverExecutable() {
+function trouverExecutable(RACINE) {
   if (process.env.WHISPER_BIN) return resolve(process.env.WHISPER_BIN);
   const local = trouverFichier(join(RACINE, "bin"), (n) => n === "whisper-server.exe" || n === "whisper-server");
   if (local) return local;
@@ -54,7 +54,7 @@ function trouverExecutable() {
   return null;
 }
 
-function trouverModele() {
+function trouverModele(RACINE) {
   const dossier = join(RACINE, "models");
   if (process.env.WHISPER_MODEL) return resolve(process.env.WHISPER_MODEL);
   const preferes = ["ggml-large-v3-turbo-q5_0.bin", "ggml-large-v3-turbo.bin", "ggml-medium.bin", "ggml-small.bin"];
@@ -92,6 +92,7 @@ async function repondDeja() {
 }
 
 export async function demarrerWhisper() {
+  const RACINE = dossierWhisper();
   // Une instance restée ouverte (fermeture brutale) est simplement réutilisée.
   if (!process.env.WHISPER_URL && (await repondDeja())) {
     etat = "pret";
@@ -102,8 +103,8 @@ export async function demarrerWhisper() {
     attendrePret(60_000);
     return `Whisper externe : ${URL_WHISPER}`;
   }
-  const executable = trouverExecutable();
-  const modele = trouverModele();
+  const executable = trouverExecutable(RACINE);
+  const modele = trouverModele(RACINE);
   if (!executable || !modele) {
     etat = "absent";
     return "Whisper non installé : lancez installer-whisper (voir CONSULTATION.md).";
@@ -136,16 +137,19 @@ export async function demarrerWhisper() {
       derniereErreur = `Whisper s'est arrêté (code ${code}). ${journal.split("\n").slice(-5).join(" ")}`;
     }
   });
-  const arreter = () => {
-    etat = "arret";
-    processus?.kill();
-  };
-  process.on("exit", arreter);
+  process.on("exit", arreterWhisper);
   process.on("SIGINT", () => process.exit(0));
   process.on("SIGTERM", () => process.exit(0));
 
   attendrePret(180_000);
   return `Whisper local : ${modele.split(/[\\/]/).pop()}${vad ? " + détection de voix" : ""}`;
+}
+
+export function arreterWhisper() {
+  if (!processus) return;
+  etat = "arret";
+  processus.kill();
+  processus = null;
 }
 
 export function etatWhisper() {

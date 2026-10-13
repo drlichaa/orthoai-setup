@@ -1,4 +1,5 @@
 // Réglages du cabinet et catalogue des appareils avec leurs textes pré-enregistrés.
+import CleApi from "./CleApi.jsx";
 
 function identifiant(nom, existants) {
   const base =
@@ -89,6 +90,8 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
           </label>
         </div>
       </section>
+
+      <CleApi />
 
       <section className="cr-carte">
         <div className="cr-titre-section">

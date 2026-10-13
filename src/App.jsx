@@ -432,6 +432,7 @@ export default function App() {
   return (
     <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"#0f1117",color:"#e8eaf0",fontFamily:"system-ui,sans-serif"}}>
       <div style={{display:"flex",alignItems:"center",padding:"12px 20px",borderBottom:"1px solid #2a2d3a",background:"#161820",gap:16}}>
+        <a href="/accueil.html" style={{color:"#9ca3af",fontSize:13,textDecoration:"none",border:"1px solid #2a2d3a",borderRadius:8,padding:"6px 10px"}}>← Accueil</a>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#4f9cf9,#7c5cbf)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🦷</div>
           <div>

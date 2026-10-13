@@ -5,6 +5,24 @@ Application qui écoute la consultation et rédige automatiquement un compte ren
 
 La transcription se fait **en local** sur l'ordinateur avec Whisper : l'audio ne quitte jamais le cabinet.
 
+## Application Mac OrthoAI (recommandé)
+
+Une application à double-cliquer qui regroupe la segmentation 3D et le compte rendu,
+dans sa propre fenêtre : plus besoin de Terminal ni de navigateur.
+
+Prérequis : Node.js, Homebrew et Whisper installés (voir « Installation sur Mac » ci-dessous).
+
+```
+cd ~/Documents/orthoai
+bash creer-application.command
+```
+
+L'application est installée dans **Applications** et s'ouvre. La clé API se saisit dans
+**Compte rendu → Appareils & cabinet → Clé API Anthropic** ; elle est vérifiée puis
+enregistrée sur l'ordinateur (`~/.orthoai/config.json`, lisible par vous seul).
+
+Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu.
+
 ## Installation sur Windows 11 (une seule fois)
 
 1. Installer **Node.js** (version LTS) : https://nodejs.org
@@ -59,7 +77,8 @@ Dans le Terminal :
 cd ~/Documents/orthoai
 bash mettre-a-jour.command
 ```
-La clé (`.env`), Whisper et ses modèles sont conservés.
+La clé, Whisper et ses modèles sont conservés. Si l'application OrthoAI est installée,
+elle est automatiquement refabriquée avec la nouvelle version.
 
 ## Fichiers
 

@@ -1,7 +1,7 @@
 {
-  "name": "orthoai-setup",
+  "name": "orthoai",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,24 +9,60 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node --env-file-if-exists=.env server/index.js",
-    "start": "node scripts/demarrer.js"
+    "start": "node scripts/demarrer.js",
+    "app": "vite build && electron .",
+    "app:mac": "vite build && electron-builder --mac dir --publish never",
+    "app:win": "vite build && electron-builder --win dir --publish never"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.1",
-    "@react-three/drei": "^9.122.0",
-    "@react-three/fiber": "^8.18.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@anthropic-ai/sdk": "^0.132.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.7",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "vite": "^8.0.12"
+  },
+  "productName": "OrthoAI",
+  "description": "OrthoAI : segmentation 3D et compte rendu de consultation orthodontique",
+  "main": "electron/main.js",
+  "build": {
+    "appId": "fr.orthoai.app",
+    "productName": "OrthoAI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "server/**",
+      "electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.medical",
+      "icon": "build/icon.png",
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "OrthoAI utilise le micro pour enregistrer la consultation et la transcrire sur cet ordinateur."
+      }
+    },
+    "win": {
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": "dir",
+      "icon": "build/icon.png"
+    }
   }
 }

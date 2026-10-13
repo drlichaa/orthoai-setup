@@ -84,7 +84,7 @@ function EtatServeur({ sante }) {
   if (etat === "absent") messages.push("Whisper n'est pas installé : lancez installer-whisper (.cmd sur Windows, .command sur Mac) puis relancez.");
   if (etat === "demarrage") messages.push("Chargement du modèle de transcription…");
   if (etat === "erreur") messages.push(sante.whisper.erreur || "Whisper est indisponible.");
-  if (!sante.cle) messages.push("Clé API absente : renseignez ANTHROPIC_API_KEY dans le fichier .env.");
+  if (!sante.cle) messages.push("Clé API absente : ajoutez-la dans « Appareils & cabinet » → Clé API Anthropic.");
   if (messages.length === 0) return <p className="cr-ok">Transcription locale prête — l'audio ne quitte pas cet ordinateur.</p>;
   return messages.map((m) => (
     <p key={m} className="cr-alerte">
@@ -212,6 +212,9 @@ export default function ConsultationApp() {
       <header className="cr-entete no-print">
         <h1>Compte rendu · 1<sup>re</sup> consultation</h1>
         <div className="cr-actions">
+          <a className="cr-lien-accueil" href="/accueil.html">
+            ← Accueil
+          </a>
           <button type="button" className="secondaire" onClick={() => setVue("catalogue")}>
             Appareils &amp; cabinet
           </button>
