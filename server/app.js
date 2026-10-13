@@ -3,6 +3,7 @@
 // - /api/compte-rendu : transforme la transcription en compte rendu structuré
 //   (JSON) généré par Claude. La clé API reste sur l'ordinateur.
 // - /api/cle : enregistre la clé API saisie dans l'application.
+// - /api/historique/... : historique chiffré des comptes rendus (sur cet ordinateur).
 // - sert aussi l'interface compilée (dist/) quand elle tourne dans l'application.
 import http from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -11,6 +12,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, buildReportSchema } from "./prompt.js";
 import { demarrerWhisper, etatWhisper, transcrire } from "./whisper.js";
 import { creerConfig } from "./config.js";
+import { FICHIER_HISTORIQUE } from "./chemins.js";
+import { ErreurHistorique, creerHistorique } from "./historique.js";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -72,6 +75,35 @@ function origineAutorisee(req) {
   } catch {
     return false;
   }
+}
+
+// Refuse les requêtes adressées sous un autre nom que cet ordinateur
+// (protection contre le « DNS rebinding » d'un site malveillant).
+function hoteAutorise(req) {
+  const hote = (req.headers.host || "").replace(/:\d+$/, "");
+  return hote === "localhost" || hote === "127.0.0.1";
+}
+
+async function routeHistorique(historique, req, url) {
+  const methode = req.method;
+  const corps = methode === "POST" ? await readJsonBody(req) : {};
+  if (methode === "GET" && url === "/api/historique/etat") return historique.etat();
+  if (methode === "POST" && url === "/api/historique/creer") return historique.creer(corps.motDePasse);
+  if (methode === "POST" && url === "/api/historique/deverrouiller") return historique.deverrouiller(corps.motDePasse);
+  if (methode === "POST" && url === "/api/historique/verrouiller") return historique.verrouiller();
+  if (methode === "POST" && url === "/api/historique/mot-de-passe") {
+    return historique.changerMotDePasse(corps.ancien, corps.nouveau);
+  }
+  if (methode === "POST" && url === "/api/historique/reinitialiser") {
+    if (corps.confirmation !== "EFFACER") throw new ErreurHistorique(400, "Confirmation manquante.");
+    return historique.reinitialiser();
+  }
+  if (methode === "GET" && url === "/api/historique") return { fiches: historique.lister() };
+  if (methode === "POST" && url === "/api/historique/enregistrer") return { fiche: historique.enregistrer(corps) };
+  if (methode === "POST" && url === "/api/historique/supprimer") return historique.supprimer(corps.id);
+  const fiche = url.match(/^\/api\/historique\/fiche\/([\w-]+)$/);
+  if (methode === "GET" && fiche) return { fiche: historique.lire(fiche[1]) };
+  throw new ErreurHistorique(404, "Route inconnue");
 }
 
 function servirFichier(dossier, req, res) {
@@ -139,15 +171,29 @@ function messageErreurApi(err) {
   return [500, err.message || "Erreur inattendue"];
 }
 
-export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig } = {}) {
+export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, fichierHistorique = FICHIER_HISTORIQUE } = {}) {
   const config = creerConfig(fichierConfig);
+  const historique = creerHistorique(fichierHistorique);
   const statique = dossierStatique ? resolve(dossierStatique) : null;
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://local").pathname;
 
-    if (req.method === "POST" && !origineAutorisee(req)) {
+    if (url.startsWith("/api/") && !hoteAutorise(req)) {
+      return sendJson(res, 403, { error: "Hôte non autorisé." });
+    }
+    const sensible = req.method === "POST" || url.startsWith("/api/historique");
+    if (sensible && !origineAutorisee(req)) {
       return sendJson(res, 403, { error: "Origine non autorisée." });
+    }
+
+    if (url.startsWith("/api/historique")) {
+      try {
+        return sendJson(res, 200, (await routeHistorique(historique, req, url)) || { ok: true });
+      } catch (err) {
+        if (!(err instanceof ErreurHistorique) && err.message !== "JSON invalide") console.error(err);
+        return sendJson(res, err.statut || 400, { error: err.message });
+      }
     }
 
     if (req.method === "GET" && url === "/api/health") {

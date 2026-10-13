@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import APPAREILS_PAR_DEFAUT from "./appareilsParDefaut.js";
+import ANCIENS_TEXTES from "./anciensTextes.js";
 import useEnregistrement, { enregistrementDisponible } from "./useEnregistrement.js";
 import CompteRendu from "./CompteRendu.jsx";
 import CatalogueAppareils from "./CatalogueAppareils.jsx";
+import Historique, { Verrou } from "./Historique.jsx";
+import { appelHistorique } from "./apiHistorique.js";
 
 const CLE_APPAREILS = "cr-ortho:appareils";
 const CLE_CABINET = "cr-ortho:cabinet";
+const CLE_APPAREILS_CONNUS = "cr-ortho:appareils-connus";
 const CABINET_VIDE = { praticien: "", cabinet: "", coordonnees: "", telephone: "", email: "" };
 
 const CHAMPS_DIAGNOSTIC = [
@@ -52,6 +56,26 @@ function ecrireStockage(cle, valeur) {
   }
 }
 
+// Appareils du tout premier catalogue (avant le suivi des appareils connus).
+const CATALOGUE_INITIAL = [
+  "disjoncteur", "quad_helix", "activateur", "masque_delaire", "plaque_amovible",
+  "multi_attaches_metal", "multi_attaches_ceramique", "aligneurs", "mainteneur_espace", "contention",
+];
+
+// Ajoute au catalogue enregistré les appareils par défaut apparus depuis
+// (mise à jour) et actualise les textes par défaut restés intacts, sans toucher
+// aux textes modifiés ni réajouter les appareils supprimés.
+function chargerAppareils() {
+  const enregistres = lireStockage(CLE_APPAREILS, null);
+  if (!enregistres) return APPAREILS_PAR_DEFAUT;
+  const connus = lireStockage(CLE_APPAREILS_CONNUS, CATALOGUE_INITIAL);
+  const nouveaux = APPAREILS_PAR_DEFAUT.filter((a) => !connus.includes(a.id) && !enregistres.some((e) => e.id === a.id));
+  const actualises = enregistres.map((a) =>
+    ANCIENS_TEXTES[a.id]?.includes(a.texte) ? APPAREILS_PAR_DEFAUT.find((d) => d.id === a.id) : a,
+  );
+  return [...actualises, ...nouveaux];
+}
+
 function aujourdhui() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -94,7 +118,7 @@ function EtatServeur({ sante }) {
 }
 
 export default function ConsultationApp() {
-  const [appareils, setAppareils] = useState(() => lireStockage(CLE_APPAREILS, APPAREILS_PAR_DEFAUT));
+  const [appareils, setAppareils] = useState(chargerAppareils);
   const [cabinet, setCabinet] = useState(() => ({ ...CABINET_VIDE, ...lireStockage(CLE_CABINET, {}) }));
   const [patient, setPatient] = useState({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
   const [transcription, setTranscription] = useState("");
@@ -104,8 +128,16 @@ export default function ConsultationApp() {
   const [erreurApi, setErreurApi] = useState("");
   const [vue, setVue] = useState("consultation");
   const [secondes, setSecondes] = useState(0);
+  // Fiche de l'historique en cours d'édition et état de son enregistrement.
+  const [idHistorique, setIdHistorique] = useState(null);
+  const [appareilsFiges, setAppareilsFiges] = useState([]);
+  const [signatureEnregistree, setSignatureEnregistree] = useState("");
+  const [sauvegarde, setSauvegarde] = useState({ enCours: false, erreur: "", verrou: null });
 
-  useEffect(() => ecrireStockage(CLE_APPAREILS, appareils), [appareils]);
+  useEffect(() => {
+    ecrireStockage(CLE_APPAREILS, appareils);
+    ecrireStockage(CLE_APPAREILS_CONNUS, APPAREILS_PAR_DEFAUT.map((a) => a.id));
+  }, [appareils]);
   useEffect(() => ecrireStockage(CLE_CABINET, cabinet), [cabinet]);
 
   const ajouterTexte = useCallback((texte) => {
@@ -171,8 +203,74 @@ export default function ConsultationApp() {
     }
   }
 
+  // Textes des appareils tels qu'enregistrés dans l'historique, prioritaires sur le catalogue actuel.
+  const appareilsAffiches = [
+    ...appareils.map((a) => appareilsFiges.find((f) => f.id === a.id) || a),
+    ...appareilsFiges.filter((f) => !appareils.some((a) => a.id === f.id)),
+  ];
+  const signature = rapport ? JSON.stringify({ patient, rapport, notes }) : "";
+  const enregistre = Boolean(rapport) && signature === signatureEnregistree;
+
+  async function enregistrerHistorique({ silencieux = false } = {}) {
+    setSauvegarde({ enCours: true, erreur: "", verrou: null });
+    try {
+      const { fiche } = await appelHistorique("/enregistrer", {
+        id: idHistorique,
+        patient,
+        rapport,
+        notes,
+        appareils: appareilsAffiches.filter((a) => rapport.plan_traitement.appareils.includes(a.id)),
+      });
+      setIdHistorique(fiche.id);
+      setSignatureEnregistree(signature);
+      setSauvegarde({ enCours: false, erreur: "", verrou: null });
+      return true;
+    } catch (err) {
+      // Historique verrouillé (423) ou pas encore créé (404) : proposer le mot de passe.
+      const verrou = err.statut === 423 || err.statut === 404 ? { existe: err.statut === 423 } : null;
+      setSauvegarde({ enCours: false, erreur: silencieux || verrou ? "" : err.message, verrou: silencieux ? null : verrou });
+      return false;
+    }
+  }
+
+  async function imprimer() {
+    // Enregistre au passage si l'historique est déverrouillé.
+    if (!enregistre) await enregistrerHistorique({ silencieux: true });
+    window.print();
+  }
+
+  function ouvrirFiche(fiche) {
+    const enCours = (rapport && !enregistre) || (!rapport && transcription.trim());
+    if (enCours && !window.confirm("La consultation en cours n'est pas enregistrée. L'abandonner pour ouvrir ce compte rendu ?")) return;
+    micro.arreter();
+    micro.oublierEchecs();
+    const rapportOuvert = {
+      ...RAPPORT_VIDE,
+      ...fiche.rapport,
+      diagnostic: { ...RAPPORT_VIDE.diagnostic, ...fiche.rapport.diagnostic },
+      plan_traitement: { ...RAPPORT_VIDE.plan_traitement, ...fiche.rapport.plan_traitement },
+    };
+    const patientOuvert = { nom: "", prenom: "", naissance: "", date: aujourdhui(), ...fiche.patient };
+    const notesOuvertes = fiche.notes || "";
+    setPatient(patientOuvert);
+    setRapport(rapportOuvert);
+    setNotes(notesOuvertes);
+    setTranscription("");
+    setSecondes(0);
+    setErreurApi("");
+    setIdHistorique(fiche.id);
+    setAppareilsFiges(fiche.appareils || []);
+    setSignatureEnregistree(JSON.stringify({ patient: patientOuvert, rapport: rapportOuvert, notes: notesOuvertes }));
+    setSauvegarde({ enCours: false, erreur: "", verrou: null });
+    setVue("consultation");
+  }
+
   function nouvelleConsultation() {
-    if (!window.confirm("Effacer la consultation en cours ?")) return;
+    const message =
+      rapport && !enregistre
+        ? "Le compte rendu n'est pas enregistré dans l'historique. Effacer quand même la consultation ?"
+        : "Effacer la consultation en cours ?";
+    if (!window.confirm(message)) return;
     micro.arreter();
     micro.oublierEchecs();
     setPatient({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
@@ -181,6 +279,10 @@ export default function ConsultationApp() {
     setRapport(null);
     setSecondes(0);
     setErreurApi("");
+    setIdHistorique(null);
+    setAppareilsFiges([]);
+    setSignatureEnregistree("");
+    setSauvegarde({ enCours: false, erreur: "", verrou: null });
   }
 
   const majDiagnostic = (cle, valeur) =>
@@ -193,6 +295,10 @@ export default function ConsultationApp() {
       const suivants = actuels.includes(id) ? actuels.filter((a) => a !== id) : [...actuels, id];
       return { ...r, plan_traitement: { ...r.plan_traitement, appareils: suivants } };
     });
+
+  if (vue === "historique") {
+    return <Historique onOuvrir={ouvrirFiche} onFermer={() => setVue("consultation")} />;
+  }
 
   if (vue === "catalogue") {
     return (
@@ -215,6 +321,9 @@ export default function ConsultationApp() {
           <a className="cr-lien-accueil" href="/accueil.html">
             ← Accueil
           </a>
+          <button type="button" className="secondaire" onClick={() => setVue("historique")}>
+            Historique
+          </button>
           <button type="button" className="secondaire" onClick={() => setVue("catalogue")}>
             Appareils &amp; cabinet
           </button>
@@ -333,10 +442,34 @@ export default function ConsultationApp() {
           <section className="cr-carte cr-pleine">
             <div className="cr-titre-section">
               <h2>Compte rendu (modifiable)</h2>
-              <button type="button" className="principal" onClick={() => window.print()}>
-                Imprimer / PDF
-              </button>
+              <div className="cr-sauvegarde">
+                <span className={enregistre ? "cr-sauvegarde-etat ok" : "cr-sauvegarde-etat"}>
+                  {enregistre ? "✓ Enregistré dans l'historique" : idHistorique ? "Modifications non enregistrées" : ""}
+                </span>
+                <button
+                  type="button"
+                  className="secondaire"
+                  onClick={() => enregistrerHistorique()}
+                  disabled={sauvegarde.enCours || enregistre}
+                >
+                  {sauvegarde.enCours ? "Enregistrement…" : "Enregistrer dans l'historique"}
+                </button>
+                <button type="button" className="principal" onClick={imprimer}>
+                  Imprimer / PDF
+                </button>
+              </div>
             </div>
+            {sauvegarde.verrou && (
+              <div className="cr-carte">
+                <h3>{sauvegarde.verrou.existe ? "Déverrouiller l'historique" : "Créer l'historique de cet ordinateur"}</h3>
+                <Verrou
+                  existe={sauvegarde.verrou.existe}
+                  onDeverrouille={() => enregistrerHistorique()}
+                  onAnnuler={() => setSauvegarde({ enCours: false, erreur: "", verrou: null })}
+                />
+              </div>
+            )}
+            {sauvegarde.erreur && <p className="cr-alerte">{sauvegarde.erreur}</p>}
 
             {rapport.points_a_verifier.length > 0 && (
               <div className="cr-verifier">
@@ -406,7 +539,7 @@ export default function ConsultationApp() {
             )}
             <fieldset className="cr-appareils">
               <legend>Appareils proposés (le texte pré-enregistré sera ajouté au compte rendu)</legend>
-              {appareils.map((a) => (
+              {appareilsAffiches.map((a) => (
                 <label key={a.id} className="cr-case">
                   <input
                     type="checkbox"
@@ -421,7 +554,7 @@ export default function ConsultationApp() {
         )}
       </main>
 
-      {rapport && <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareils} />}
+      {rapport && <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />}
     </div>
   );
 }

@@ -4,6 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+# Lancée depuis VS Code, cette variable ferait démarrer Electron comme simple Node.
+unset ELECTRON_RUN_AS_NODE
 
 echo "1/4 Installation des dépendances..."
 npm install --no-audit --no-fund --loglevel=error

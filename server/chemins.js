@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 
 export const DOSSIER_ORTHOAI = join(homedir(), ".orthoai");
 export const FICHIER_CONFIG = process.env.ORTHOAI_CONFIG || join(DOSSIER_ORTHOAI, "config.json");
+export const FICHIER_HISTORIQUE = process.env.ORTHOAI_HISTORIQUE || join(DOSSIER_ORTHOAI, "historique.chiffre");
 
 // Dossier « whisper » (programme Windows et modèles) : celui du projet,
 // ou ~/Documents/orthoai/whisper quand l'application est installée ailleurs.

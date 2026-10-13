@@ -23,6 +23,32 @@ enregistrée sur l'ordinateur (`~/.orthoai/config.json`, lisible par vous seul).
 
 Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu.
 
+## Application Windows OrthoAI (recommandé)
+
+Même application, pour Windows 11. Prérequis : Node.js et Whisper installés
+(voir « Installation sur Windows 11 » ci-dessous, étapes 1 à 3).
+
+Double-cliquer sur **`creer-application.cmd`** : l'application est fabriquée (1 à 3 minutes),
+installée, et une icône **OrthoAI** est ajoutée sur le Bureau et dans le menu Démarrer.
+La clé API se saisit dans l'application, comme sur Mac (`%USERPROFILE%\.orthoai\config.json`).
+
+Raccourcis : Ctrl+1 accueil · Ctrl+2 segmentation · Ctrl+3 compte rendu.
+
+## Historique des comptes rendus
+
+Le bouton **Historique** retrouve les comptes rendus déjà rédigés (recherche par nom, prénom ou date),
+pour les relire, les modifier ou les réimprimer.
+
+- Un compte rendu s'ajoute avec **Enregistrer dans l'historique**, ou automatiquement à l'impression
+  lorsque l'historique est déverrouillé.
+- L'historique est **propre à chaque ordinateur** et protégé par un mot de passe choisi au premier
+  enregistrement. Il est chiffré (AES-256) dans `~/.orthoai/historique.chiffre` et se verrouille seul
+  après 30 minutes d'inactivité ou à la fermeture de l'application.
+- **Mot de passe oublié = historique perdu** : il n'existe aucun moyen de le récupérer.
+  Le seul recours est « Effacer l'historique et recommencer ».
+- La transcription n'est pas conservée : seuls le patient, les notes et le compte rendu le sont,
+  avec le texte des appareils tel qu'imprimé.
+
 ## Installation sur Windows 11 (une seule fois)
 
 1. Installer **Node.js** (version LTS) : https://nodejs.org
@@ -70,14 +96,18 @@ le navigateur (Edge, Chrome, Firefox ou Safari). Fermer la fenêtre du terminal 
 Le bouton « Appareils & cabinet » permet de modifier l'en-tête et les textes pré-enregistrés
 de chaque appareil (sauvegardés dans le navigateur).
 
-## Mettre à jour l'application (Mac)
+## Mettre à jour l'application
+
+**Windows** : double-cliquer sur **`mettre-a-jour.cmd`**.
+
+**Mac** :
 
 Dans le Terminal :
 ```
 cd ~/Documents/orthoai
 bash mettre-a-jour.command
 ```
-La clé, Whisper et ses modèles sont conservés. Si l'application OrthoAI est installée,
+La clé, Whisper, ses modèles et l'historique sont conservés. Si l'application OrthoAI est installée,
 elle est automatiquement refabriquée avec la nouvelle version.
 
 ## Fichiers
@@ -85,6 +115,8 @@ elle est automatiquement refabriquée avec la nouvelle version.
 - `server/index.js` : serveur local (`/api/transcription`, `/api/compte-rendu`)
 - `server/whisper.js` : lancement de whisper.cpp et transcription locale
 - `server/prompt.js` : consignes de rédaction et schéma du compte rendu
+- `server/historique.js` : historique chiffré des comptes rendus
+- `electron/` : application de bureau ; `creer-application.command` (Mac), `creer-application.cmd` (Windows)
 - `src/consultation/` : interface (enregistrement, édition, impression, catalogue)
 - `scripts/installer-whisper.ps1` (Windows), `scripts/installer-whisper.sh` (Mac), `scripts/demarrer.js` : installation et lancement
 
@@ -92,7 +124,9 @@ elle est automatiquement refabriquée avec la nouvelle version.
 
 - **Audio** : enregistré et transcrit uniquement sur l'ordinateur (Whisper local), jamais envoyé.
 - **Texte** : la transcription pseudonymisée est envoyée à l'API Anthropic pour la rédaction du compte rendu.
-- L'application ne conserve rien : ni audio ni transcription après la consultation (l'API Anthropic applique sa propre politique de conservation des données).
+- **Conservation** : ni audio ni transcription après la consultation. Les comptes rendus enregistrés dans
+  l'historique restent sur l'ordinateur, chiffrés par votre mot de passe (l'API Anthropic applique sa propre
+  politique de conservation des données).
 
 Avant une utilisation avec de vrais patients : informer le patient et recueillir son accord
 pour l'enregistrement, et vérifier la conformité RGPD / hébergement de données de santé (HDS)

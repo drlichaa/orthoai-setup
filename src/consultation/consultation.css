@@ -96,6 +96,7 @@ button.danger { background: #fff; color: var(--cr-danger); border-color: var(--c
 .cr-doc-table td { padding: 4px 0; }
 .cr-doc-table tr + tr th, .cr-doc-table tr + tr td { border-top: 1px solid #eee; }
 .cr-doc-appareil { break-inside: avoid; }
+.cr-doc-appareil p { white-space: pre-line; }
 .cr-doc-signature { text-align: right; margin-top: 28px; font-weight: 600; }
 
 @media (max-width: 600px) {
@@ -120,3 +121,29 @@ button.danger { background: #fff; color: var(--cr-danger); border-color: var(--c
 .cr-cle { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .cr-cle input { flex: 1 1 260px; }
 .cr-cle button.principal { margin-top: 0; }
+
+/* Historique */
+.cr-verrou { margin-top: 4px; }
+.cr-verrou .cr-champs-ligne { margin-top: 12px; max-width: 640px; }
+.cr-verrou-actions { margin-top: 12px; align-items: center; }
+.cr-verrou-actions button.principal { margin-top: 0; }
+.cr-lien { background: none; border: 0; padding: 0; color: var(--cr-accent); font-weight: 600; text-decoration: underline; }
+.cr-recherche { max-width: 320px; }
+.cr-historique { list-style: none; margin: 0; padding: 0; }
+.cr-historique li { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--cr-bord); padding: 6px 0; }
+.cr-fiche { flex: 1; min-width: 0; display: grid; grid-template-columns: 100px minmax(0, 1fr); column-gap: 12px; text-align: left; background: none; font-weight: 400; color: var(--cr-texte); padding: 8px; }
+.cr-fiche:hover { background: var(--cr-accent-fond); }
+.cr-fiche-date { font-variant-numeric: tabular-nums; color: var(--cr-doux); grid-row: span 2; }
+.cr-fiche-nom { font-weight: 600; }
+.cr-fiche-nom small { font-weight: 400; color: var(--cr-doux); }
+.cr-fiche-motif { color: var(--cr-doux); font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-details-carte summary { cursor: pointer; font-weight: 600; }
+.cr-details-carte form { margin-top: 12px; }
+.cr-sauvegarde { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cr-sauvegarde button.principal { margin-top: 0; }
+.cr-sauvegarde-etat { font-size: 0.85rem; color: var(--cr-doux); }
+.cr-sauvegarde-etat.ok { color: #067647; }
+@media (max-width: 600px) {
+  .cr-fiche { grid-template-columns: 1fr; }
+  .cr-fiche-date { grid-row: auto; }
+}
