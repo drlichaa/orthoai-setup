@@ -9,7 +9,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$Version = "v1.9.5"
+$Version = "b5454"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $Racine = Join-Path (Split-Path $PSScriptRoot -Parent) "whisper"
 $Bin = Join-Path $Racine "bin"
 $Models = Join-Path $Racine "models"
@@ -27,19 +28,40 @@ function Telecharger($Url, $Destination) {
 # 1. Programme whisper.cpp
 $Nvidia = (-not $Cpu) -and [bool](Get-Command nvidia-smi -ErrorAction SilentlyContinue)
 if ($Nvidia) {
-  $Archive = "whisper-bin-win-cuda-12.4.0-x64.zip"
+  # Noms possibles selon les publications de whisper.cpp.
+  $Archives = @("whisper-bin-win-cuda-12.4.0-x64.zip", "whisper-cublas-12.4.0-bin-x64.zip")
   Write-Host "Carte graphique NVIDIA détectée : version accélérée (CUDA)."
 } else {
-  $Archive = "whisper-blas-bin-x64.zip"
+  $Archives = @("whisper-blas-bin-x64.zip", "whisper-bin-x64.zip")
   Write-Host "Version processeur (pas de carte NVIDIA détectée)."
 }
-$Zip = Join-Path $env:TEMP $Archive
-Telecharger "https://github.com/ggml-org/whisper.cpp/releases/download/$Version/$Archive" $Zip
+
+# whisper.cpp publie ses programmes Windows dans des publications « bNNNN »
+# (les versions « v1.x » n'en contiennent plus) : on prend la plus récente
+# qui fournit l'archive voulue, sinon une publication connue.
+function TrouverArchive($Noms) {
+  try {
+    $Publications = Invoke-RestMethod "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=20" -UseBasicParsing
+    foreach ($Publication in $Publications) {
+      foreach ($Nom in $Noms) {
+        $Fichier = $Publication.assets | Where-Object { $_.name -eq $Nom } | Select-Object -First 1
+        if ($Fichier) { return @{ Nom = $Nom; Url = $Fichier.browser_download_url } }
+      }
+    }
+  } catch {
+    Write-Host "  Liste des publications indisponible, utilisation d'une version connue."
+  }
+  return @{ Nom = $Noms[0]; Url = "https://github.com/ggml-org/whisper.cpp/releases/download/$Version/$($Noms[0])" }
+}
+
+$Archive = TrouverArchive $Archives
+$Zip = Join-Path $env:TEMP $Archive.Nom
+Telecharger $Archive.Url $Zip
 Remove-Item -Recurse -Force (Join-Path $Bin "*") -ErrorAction SilentlyContinue
 Expand-Archive -Path $Zip -DestinationPath $Bin -Force
 Remove-Item $Zip
 $Exe = Get-ChildItem -Path $Bin -Recurse -Filter "whisper-server.exe" | Select-Object -First 1
-if (-not $Exe) { throw "whisper-server.exe introuvable dans l'archive $Archive." }
+if (-not $Exe) { throw "whisper-server.exe introuvable dans l'archive $($Archive.Nom)." }
 
 # 2. Modèle de transcription (~550 Mo pour large-v3-turbo-q5_0)
 $FichierModele = Join-Path $Models "ggml-$Modele.bin"
