@@ -91,6 +91,18 @@ export class ErreurHistorique extends Error {
 
 const texte = (v, max = 20000) => (typeof v === "string" ? v.slice(0, max) : "");
 
+// Nom en majuscules ; prénom avec seulement l'initiale en majuscule
+// (« jean-pierre » → « Jean-Pierre »).
+export function formaterNom(nom) {
+  return texte(nom, 200).toLocaleUpperCase("fr-FR");
+}
+
+export function formaterPrenom(prenom) {
+  return texte(prenom, 200)
+    .toLocaleLowerCase("fr-FR")
+    .replace(/(^|[\s'-])(\p{L})/gu, (_, separateur, lettre) => separateur + lettre.toLocaleUpperCase("fr-FR"));
+}
+
 // Schéma dentaire : numéro FDI → états de la dent.
 const ETATS_DENT = ["agenesie", "aExtraire", "extraite", "incluse"];
 const DENT_FDI = /^[1-8][1-8]$/;
@@ -237,8 +249,8 @@ export function creerHistorique(fichier) {
       id: existant?.id || randomUUID(),
       creeLe: existant?.creeLe || new Date().toISOString(),
       modifieLe: new Date().toISOString(),
-      nom: texte(brut.nom, 200),
-      prenom: texte(brut.prenom, 200),
+      nom: formaterNom(brut.nom),
+      prenom: formaterPrenom(brut.prenom),
       naissance: texte(brut.naissance, 10),
       // Identifiants repris d'OrthoFast : le code relie aux dossiers photos.
       code: texte(brut.code, 20),
@@ -261,6 +273,10 @@ export function creerHistorique(fichier) {
       debut: texte(brut.debut, 10),
       diagnostic: texte(brut.diagnostic),
       plan: texte(brut.plan),
+      // Textes repris de la première consultation : remplacés si elle est
+      // modifiée, sauf si le praticien les a changés entre-temps.
+      diagnosticAuto: texte(brut.diagnosticAuto),
+      planAuto: texte(brut.planAuto),
       alerte: texte(brut.alerte, 2000),
       penseBete: texte(brut.penseBete),
       dentsAExtraire: texte(brut.dentsAExtraire, 300),
@@ -303,12 +319,12 @@ export function creerHistorique(fichier) {
   function rattacherPatient(patientId, identite, resumeClinique) {
     if (patientId && patients.some((p) => p.id === patientId)) return patientId;
     const identifiant = (p) => [p.nom, p.prenom, p.naissance].map(sansAccents).join("|");
+    // Les dossiers sont enregistrés nom en majuscules : même mise en forme pour comparer.
+    identite = { ...identite, nom: formaterNom(identite?.nom), prenom: formaterPrenom(identite?.prenom) };
     if (!identite?.nom?.trim() && !identite?.prenom?.trim()) return null;
     const existant = patients.find((p) => identifiant(p) === identifiant(identite));
     if (existant) {
       if (!existant.sexe && ["F", "M"].includes(identite.sexe)) existant.sexe = identite.sexe;
-      if (!existant.diagnostic && resumeClinique?.diagnostic) existant.diagnostic = texte(resumeClinique.diagnostic);
-      if (!existant.plan && resumeClinique?.plan) existant.plan = texte(resumeClinique.plan);
       return existant.id;
     }
     const nouveau = nettoyerPatient(
@@ -320,6 +336,8 @@ export function creerHistorique(fichier) {
         statut: reglages.statuts[0]?.nom || "",
         diagnostic: resumeClinique?.diagnostic,
         plan: resumeClinique?.plan,
+        diagnosticAuto: resumeClinique?.diagnostic,
+        planAuto: resumeClinique?.plan,
       },
       null,
     );
@@ -381,6 +399,25 @@ export function creerHistorique(fichier) {
         .join(", ");
     patient.agenesies = liste("agenesie") || patient.agenesies || "";
     patient.dentsAExtraire = liste("aExtraire") || patient.dentsAExtraire || "";
+  }
+
+  // Diagnostic et plan de la fiche clinique = ceux de la première consultation.
+  function reprendrePremiereConsultation(patient, fiche, resumeClinique) {
+    const premiere = fiches
+      .filter((f) => f.patientId === patient.id)
+      .sort((a, b) => (a.patient?.date || a.creeLe).localeCompare(b.patient?.date || b.creeLe))[0];
+    if (premiere?.id !== fiche.id || !resumeClinique) return;
+    for (const [champ, auto] of [
+      ["diagnostic", "diagnosticAuto"],
+      ["plan", "planAuto"],
+    ]) {
+      const nouveau = texte(resumeClinique[champ === "diagnostic" ? "diagnostic" : "plan"]);
+      const intact = !patient[champ] || patient[champ] === patient[auto];
+      if (nouveau && intact) {
+        patient[champ] = nouveau;
+        patient[auto] = nouveau;
+      }
+    }
   }
 
   function cheminMedia(id) {
@@ -490,6 +527,7 @@ export function creerHistorique(fichier) {
       if (patientRattache) {
         assurerSeancesConsultation(patientRattache);
         reporterDents(patientRattache, existante?.rapport, rapport);
+        reprendrePremiereConsultation(patientRattache, fiche, resumeClinique);
       }
       sauvegarder();
       return resume(fiche);

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { appelApi, appelHistorique } from "./apiHistorique.js";
 import FichePatient from "./FichePatient.jsx";
 import { Verrou } from "./Historique.jsx";
-import { age, classeStatut, formaterDate } from "./format.js";
+import { age, classeStatut, formaterDate, formaterNom, formaterPrenom } from "./format.js";
 
 // Dossiers patients, dans le même coffre chiffré que l'historique.
 
@@ -40,15 +40,17 @@ async function lirePatients() {
   }
 }
 
+const MISE_EN_FORME = { nom: formaterNom, prenom: formaterPrenom };
+
 function NouveauPatient({ reglages, onCree, onAnnuler }) {
-  const [champs, setChamps] = useState({ nom: "", prenom: "", naissance: "" });
+  const [champs, setChamps] = useState({ nom: "", prenom: "", naissance: "", email: "" });
   const [erreur, setErreur] = useState("");
 
   async function creer(e) {
     e.preventDefault();
     try {
       const { patient } = await appelApi("/patients/enregistrer", {
-        patient: { ...champs, type: reglages.types[0], statut: reglages.statuts[0]?.nom, debut: aujourdhui() },
+        patient: { ...champs, type: "", statut: reglages.statuts[0]?.nom, debut: aujourdhui() },
       });
       onCree(patient.id);
     } catch (err) {
@@ -64,6 +66,7 @@ function NouveauPatient({ reglages, onCree, onAnnuler }) {
           ["nom", "Nom", "text"],
           ["prenom", "Prénom", "text"],
           ["naissance", "Date de naissance", "date"],
+          ["email", "E-mail", "email"],
         ].map(([cle, libelle, type]) => (
           <label key={cle}>
             {libelle}
@@ -71,7 +74,7 @@ function NouveauPatient({ reglages, onCree, onAnnuler }) {
               type={type}
               value={champs[cle]}
               autoFocus={cle === "nom"}
-              onChange={(e) => setChamps({ ...champs, [cle]: e.target.value })}
+              onChange={(e) => setChamps({ ...champs, [cle]: MISE_EN_FORME[cle]?.(e.target.value) ?? e.target.value })}
             />
           </label>
         ))}
@@ -90,7 +93,6 @@ function NouveauPatient({ reglages, onCree, onAnnuler }) {
 }
 
 function Reglages({ reglages, patients, onChange }) {
-  const [nouveauType, setNouveauType] = useState("");
   const [nouveauStatut, setNouveauStatut] = useState({ nom: "", couleur: "blue" });
   const [erreur, setErreur] = useState("");
 
@@ -103,48 +105,17 @@ function Reglages({ reglages, patients, onChange }) {
     }
   }
 
-  const nbType = (t) => patients.filter((p) => p.type === t).length;
   const nbStatut = (s) => patients.filter((p) => p.statut === s).length;
 
   return (
     <section className="cr-carte">
-      <h2>Types de traitement et statuts</h2>
+      <h2>Statuts</h2>
       <p className="cr-aide">
-        Un type ou un statut utilisé par un patient ne peut pas être supprimé : changez d'abord celui des patients
-        concernés.
+        Un statut utilisé par un patient ne peut pas être supprimé : changez d'abord celui des patients concernés. Le
+        type de traitement se choisit parmi les appareils du catalogue (« Appareils &amp; cabinet ») quand le statut est
+        « En traitement ».
       </p>
       <div className="cr-reglages">
-        <div>
-          <h3>Types de traitement</h3>
-          {reglages.types.map((t, i) => (
-            <div key={t} className="cr-reglage-ligne">
-              <span>{t}</span>
-              <span className="cr-aide">{nbType(t)} patient(s)</span>
-              <button
-                type="button"
-                className="danger"
-                disabled={nbType(t) > 0 || reglages.types.length <= 1}
-                onClick={() => enregistrer({ ...reglages, types: reglages.types.filter((_, j) => j !== i) })}
-              >
-                Supprimer
-              </button>
-            </div>
-          ))}
-          <form
-            className="cr-reglage-ligne"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!nouveauType.trim() || reglages.types.includes(nouveauType.trim())) return;
-              enregistrer({ ...reglages, types: [...reglages.types, nouveauType.trim()] });
-              setNouveauType("");
-            }}
-          >
-            <input value={nouveauType} placeholder="Nouveau type…" onChange={(e) => setNouveauType(e.target.value)} />
-            <button type="submit" className="secondaire">
-              + Ajouter
-            </button>
-          </form>
-        </div>
         <div>
           <h3>Statuts</h3>
           {reglages.statuts.map((s, i) => (
@@ -221,6 +192,7 @@ export default function Patients({
   onNouvelleConsultation,
   onFermer,
   cabinet,
+  appareils,
 }) {
   const [donnees, setDonnees] = useState(null);
   const [recherche, setRecherche] = useState("");
@@ -250,7 +222,7 @@ export default function Patients({
               className="secondaire"
               onClick={() => setMode(mode === "reglages" ? "liste" : "reglages")}
             >
-              {mode === "reglages" ? "Retour à la liste" : "Types & statuts"}
+              {mode === "reglages" ? "Retour à la liste" : "Statuts"}
             </button>
             <button type="button" className="principal" onClick={() => setMode("nouveau")}>
               + Nouveau patient
@@ -292,13 +264,15 @@ export default function Patients({
           onNouvelleConsultation={onNouvelleConsultation}
           onSupprime={() => onSelection(null)}
           cabinet={cabinet}
+          appareils={appareils}
         />
       </div>
     );
   }
 
   const { patients, reglages } = donnees;
-  const filtres = ["Tous", ...reglages.types];
+  // Filtres : les types de traitement réellement utilisés.
+  const filtres = ["Tous", ...new Set(patients.map((p) => p.type).filter(Boolean))];
   const termes = sansAccents(recherche).split(/\s+/).filter(Boolean);
   const visibles = patients
     .filter((p) => filtre === "Tous" || p.type === filtre)

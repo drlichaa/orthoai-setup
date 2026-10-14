@@ -10,6 +10,7 @@ import Historique, { Verrou } from "./Historique.jsx";
 import Patients from "./Patients.jsx";
 import { appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
+import { formaterNom, formaterPrenom } from "./format.js";
 
 const CLE_APPAREILS = "cr-ortho:appareils";
 const CLE_CABINET = "cr-ortho:cabinet";
@@ -451,6 +452,7 @@ export default function ConsultationApp() {
         onNouvelleConsultation={consultationPour}
         onFermer={fermerPatients}
         cabinet={cabinet}
+        appareils={appareils}
       />
     );
   }
@@ -520,11 +522,14 @@ export default function ConsultationApp() {
           <div className="cr-champs-ligne">
             <label>
               Nom
-              <input value={patient.nom} onChange={(e) => setPatient({ ...patient, nom: e.target.value })} />
+              <input value={patient.nom} onChange={(e) => setPatient({ ...patient, nom: formaterNom(e.target.value) })} />
             </label>
             <label>
               Prénom
-              <input value={patient.prenom} onChange={(e) => setPatient({ ...patient, prenom: e.target.value })} />
+              <input
+                value={patient.prenom}
+                onChange={(e) => setPatient({ ...patient, prenom: formaterPrenom(e.target.value) })}
+              />
             </label>
             <label>
               Date de naissance

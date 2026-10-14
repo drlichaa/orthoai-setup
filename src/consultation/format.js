@@ -59,3 +59,17 @@ export function accorder(texte, sexePatient, genrePraticien) {
     return forme;
   });
 }
+
+// Nom en majuscules ; prénom avec seulement l'initiale en majuscule.
+export function formaterNom(nom) {
+  return (nom || "").toLocaleUpperCase("fr-FR");
+}
+
+export function formaterPrenom(prenom) {
+  return (prenom || "")
+    .toLocaleLowerCase("fr-FR")
+    .replace(/(^|[\s'-])(\p{L})/gu, (_, separateur, lettre) => separateur + lettre.toLocaleUpperCase("fr-FR"));
+}
+
+// Statut pour lequel un appareil (type de traitement) est choisi.
+export const STATUT_TRAITEMENT = "En traitement";

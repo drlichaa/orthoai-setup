@@ -3,7 +3,16 @@ import { flushSync } from "react-dom";
 import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import { texteExtractions } from "./modelesCourriers.js";
 import { appelApi, envoyerImage } from "./apiHistorique.js";
-import { accorder, age, classeStatut, depuis, formaterDate } from "./format.js";
+import {
+  STATUT_TRAITEMENT,
+  accorder,
+  age,
+  classeStatut,
+  depuis,
+  formaterDate,
+  formaterNom,
+  formaterPrenom,
+} from "./format.js";
 import { dentsAvecEtat } from "./dents.js";
 import SchemaDentaire from "./SchemaDentaire.jsx";
 
@@ -12,11 +21,21 @@ import SchemaDentaire from "./SchemaDentaire.jsx";
 // automatiquement dans le coffre chiffré.
 
 const ARCS = [
-  ["arcSup", "Arc supérieur"],
-  ["arcInf", "Arc inférieur"],
-  ["aux1", "Auxiliaire 1"],
-  ["aux2", "Auxiliaire 2"],
+  ["arcSup", "Arc supérieur", "cr-fils", "Ex. : NiTi .014"],
+  ["arcInf", "Arc inférieur", "cr-fils", "Ex. : NiTi .014"],
+  ["aux1", "Auxiliaire 1 (élastiques)", "cr-elastiques", "Ex. : Moose force 1"],
+  ["aux2", "Auxiliaire 2 (tractions)", "cr-tractions", "Ex. : TIM 2"],
 ];
+
+// Élastiques inter-maxillaires, par modèle et par force.
+const ELASTIQUES = ["Moose", "Parrot", "Rabbit", "Ram", "Walrus"].flatMap((m) => [`${m} force 1`, `${m} force 2`]);
+const TRACTIONS = ["TIM 2", "TIM 3", "TIM Rectangle", "Criss-Cross"];
+
+const MISE_EN_FORME = { nom: formaterNom, prenom: formaterPrenom };
+
+// Appareils proposables comme type de traitement (hors conseils et gestes ponctuels).
+const TYPES_APPAREILS = (appareils) =>
+  appareils.filter((a) => !["recommandations_bagues", "stripping"].includes(a.id)).map((a) => a.nom);
 
 // Libellés repris dans le suivi des séances, comme dans OrthoFast.
 const ARCS_SUIVI = { arcSup: "Arc Sup.", arcInf: "Arc Inf.", aux1: "Aux. 1", aux2: "Aux. 2" };
@@ -143,6 +162,7 @@ export default function FichePatient({
   onNouvelleConsultation,
   onSupprime,
   cabinet,
+  appareils = [],
 }) {
   const [dossier, setDossier] = useState(null);
   const [patient, setPatient] = useState(null);
@@ -297,7 +317,11 @@ export default function FichePatient({
   const champ = (cle, libelle, type = "text") => (
     <label>
       {libelle}
-      <input type={type} value={patient[cle] ?? ""} onChange={(e) => maj({ [cle]: e.target.value })} />
+      <input
+        type={type}
+        value={patient[cle] ?? ""}
+        onChange={(e) => maj({ [cle]: MISE_EN_FORME[cle]?.(e.target.value) ?? e.target.value })}
+      />
     </label>
   );
 
@@ -341,21 +365,30 @@ export default function FichePatient({
               </p>
             </div>
             <div className="cr-identite-etat">
-              <select
-                className="cr-pastille c-type"
-                value={patient.type}
-                aria-label="Type de traitement"
-                onChange={(e) => maj({ type: e.target.value }, { immediat: true })}
-              >
-                {[...new Set([...reglages.types, patient.type].filter(Boolean))].map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+              {/* L'appareil (type de traitement) n'est demandé que pour un patient en traitement. */}
+              {patient.statut === STATUT_TRAITEMENT && (
+                <select
+                  className="cr-pastille c-type"
+                  value={patient.type}
+                  aria-label="Appareil (type de traitement)"
+                  onChange={(e) => maj({ type: e.target.value }, { immediat: true })}
+                >
+                  <option value="">Choisir l'appareil…</option>
+                  {[...new Set([...TYPES_APPAREILS(appareils), patient.type].filter(Boolean))].map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              )}
               <select
                 className={classeStatut(reglages, patient.statut)}
                 value={patient.statut}
                 aria-label="Statut"
-                onChange={(e) => maj({ statut: e.target.value }, { immediat: true })}
+                onChange={(e) =>
+                  maj(
+                    { statut: e.target.value, ...(e.target.value === STATUT_TRAITEMENT ? {} : { type: "" }) },
+                    { immediat: true },
+                  )
+                }
               >
                 {[...new Set([...reglages.statuts.map((s) => s.nom), patient.statut].filter(Boolean))].map((s) => (
                   <option key={s}>{s}</option>
@@ -389,14 +422,14 @@ export default function FichePatient({
               <h2>Traitement en cours</h2>
               <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>
               <div className="cr-arcs cr-bloc">
-                {ARCS.map(([cle, libelle]) => (
+                {ARCS.map(([cle, libelle, liste, exemple]) => (
                   <div key={cle} className="cr-arc">
                     <label>
                       {libelle}
                       <input
-                        list="cr-fils"
+                        list={liste}
                         value={patient[cle].fil}
-                        placeholder="Ex. : NiTi .014"
+                        placeholder={exemple}
                         onChange={(e) =>
                           maj({
                             // Nouveau fil : posé aujourd'hui (modifiable) et noté dans la séance du jour.
@@ -419,6 +452,16 @@ export default function FichePatient({
                 ))}
                 <datalist id="cr-fils">
                   {FILS.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
+                <datalist id="cr-elastiques">
+                  {ELASTIQUES.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
+                <datalist id="cr-tractions">
+                  {TRACTIONS.map((f) => (
                     <option key={f} value={f} />
                   ))}
                 </datalist>
