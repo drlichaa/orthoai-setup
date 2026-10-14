@@ -74,6 +74,12 @@ dans leur navigateur. Les dossiers, l'historique et les réglages du cabinet (en
 appareils) sont alors les mêmes partout. La liaison passe par **Tailscale**, un réseau privé chiffré :
 les données ne quittent pas le cabinet et aucun site n'est publié sur internet.
 
+**Serveur Windows (installation en une fois)** : installer Node.js (LTS) et Tailscale (connecté),
+télécharger ce projet, puis double-cliquer sur **`installer-serveur.cmd`** : Whisper, application,
+lancement au démarrage du PC et publication Tailscale sont faits, et l'adresse des postes s'affiche.
+
+Étapes détaillées (ou serveur Mac) :
+
 1. Sur le serveur et sur chaque poste : installer **Tailscale** (https://tailscale.com/download)
    et se connecter avec le **même compte**.
 2. Sur le serveur, une seule fois, dans le Terminal :
