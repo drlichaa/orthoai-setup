@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const MODULES = [
   {
     href: "/consultation.html#patients",
@@ -20,6 +22,19 @@ const MODULES = [
 ];
 
 export default function Accueil() {
+  const [distant, setDistant] = useState(false);
+  useEffect(() => {
+    fetch("/api/session")
+      .then((r) => r.json())
+      .then((d) => setDistant(Boolean(d.distant)))
+      .catch(() => {});
+  }, []);
+
+  async function deconnecter() {
+    await fetch("/api/session/deconnexion", { method: "POST" }).catch(() => {});
+    window.location.reload();
+  }
+
   return (
     <main className="ac-page">
       <header className="ac-entete">
@@ -40,6 +55,14 @@ export default function Accueil() {
           </a>
         ))}
       </div>
+      {distant && (
+        <p className="ac-aide">
+          Connecté au serveur du cabinet ·{" "}
+          <button type="button" className="ac-deconnexion" onClick={deconnecter}>
+            Se déconnecter
+          </button>
+        </p>
+      )}
       <p className="ac-aide">Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu · ⌘4 patients</p>
     </main>
   );

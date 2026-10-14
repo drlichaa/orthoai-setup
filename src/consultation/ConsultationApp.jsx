@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import APPAREILS_PAR_DEFAUT from "./appareilsParDefaut.js";
 import ANCIENS_TEXTES from "./anciensTextes.js";
@@ -83,15 +83,30 @@ const CATALOGUE_INITIAL = [
 // Ajoute au catalogue enregistré les appareils par défaut apparus depuis
 // (mise à jour) et actualise les textes par défaut restés intacts, sans toucher
 // aux textes modifiés ni réajouter les appareils supprimés.
-function chargerAppareils() {
-  const enregistres = lireStockage(CLE_APPAREILS, null);
-  if (!enregistres) return APPAREILS_PAR_DEFAUT;
-  const connus = lireStockage(CLE_APPAREILS_CONNUS, CATALOGUE_INITIAL);
+function completerAppareils(enregistres, connus = CATALOGUE_INITIAL) {
   const nouveaux = APPAREILS_PAR_DEFAUT.filter((a) => !connus.includes(a.id) && !enregistres.some((e) => e.id === a.id));
   const actualises = enregistres.map((a) =>
     ANCIENS_TEXTES[a.id]?.includes(a.texte) ? APPAREILS_PAR_DEFAUT.find((d) => d.id === a.id) : a,
   );
   return [...actualises, ...nouveaux];
+}
+
+function chargerAppareils() {
+  const enregistres = lireStockage(CLE_APPAREILS, null);
+  if (!enregistres) return APPAREILS_PAR_DEFAUT;
+  return completerAppareils(enregistres, lireStockage(CLE_APPAREILS_CONNUS, CATALOGUE_INITIAL));
+}
+
+const IDS_PAR_DEFAUT = APPAREILS_PAR_DEFAUT.map((a) => a.id);
+
+// En-tête et catalogue sont gardés par le serveur, pour être identiques sur
+// tous les postes du cabinet (copie locale pour un affichage immédiat).
+function envoyerReglagesCabinet(cabinet, appareils) {
+  fetch("/api/cabinet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ cabinet, appareils, appareilsConnus: IDS_PAR_DEFAUT }),
+  }).catch(() => {});
 }
 
 function aujourdhui() {
@@ -184,11 +199,37 @@ export default function ConsultationApp() {
   // Courrier en cours d'impression (index), sinon le compte rendu est imprimé.
   const [courrierImprime, setCourrierImprime] = useState(null);
 
+  // Réglages du cabinet : lus sur le serveur au démarrage, puis renvoyés à chaque modification.
+  const reglagesCharges = useRef(false);
+  useEffect(() => {
+    let actif = true;
+    fetch("/api/cabinet")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!actif || !d) return;
+        if (d.cabinet) setCabinet({ ...CABINET_VIDE, ...d.cabinet });
+        if (d.appareils) setAppareils(completerAppareils(d.appareils, d.appareilsConnus || CATALOGUE_INITIAL));
+        // Premier lancement en mode partagé : les réglages de ce poste deviennent ceux du cabinet.
+        if (!d.cabinet || !d.appareils) {
+          envoyerReglagesCabinet(d.cabinet || cabinetInitial.current, d.appareils || appareilsInitiaux.current);
+        }
+        reglagesCharges.current = true;
+      })
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+  }, []);
+  const cabinetInitial = useRef(cabinet);
+  const appareilsInitiaux = useRef(appareils);
   useEffect(() => {
     ecrireStockage(CLE_APPAREILS, appareils);
-    ecrireStockage(CLE_APPAREILS_CONNUS, APPAREILS_PAR_DEFAUT.map((a) => a.id));
-  }, [appareils]);
-  useEffect(() => ecrireStockage(CLE_CABINET, cabinet), [cabinet]);
+    ecrireStockage(CLE_APPAREILS_CONNUS, IDS_PAR_DEFAUT);
+    ecrireStockage(CLE_CABINET, cabinet);
+    if (!reglagesCharges.current) return undefined;
+    const minuteur = setTimeout(() => envoyerReglagesCabinet(cabinet, appareils), 600);
+    return () => clearTimeout(minuteur);
+  }, [cabinet, appareils]);
 
   useEffect(() => {
     const surHash = () => {

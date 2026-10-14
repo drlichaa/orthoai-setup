@@ -5,6 +5,8 @@
 // - /api/cle : enregistre la clé API saisie dans l'application.
 // - /api/historique/... : historique chiffré des comptes rendus (sur cet ordinateur).
 // - /api/patients/... : dossiers patients, photos et radios, dans le même coffre chiffré.
+// - /api/session/... : connexion des autres ordinateurs du cabinet (voir acces.js).
+// - /api/cabinet : en-tête, logo, signature et catalogue d'appareils, partagés par tous les postes.
 // - sert aussi l'interface compilée (dist/) quand elle tourne dans l'application.
 import http from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -15,9 +17,10 @@ import { demarrerWhisper, etatWhisper, transcrire } from "./whisper.js";
 import { creerConfig } from "./config.js";
 import { FICHIER_HISTORIQUE } from "./chemins.js";
 import { ErreurHistorique, creerHistorique } from "./historique.js";
+import { PAGE_CONNEXION, creerSessions, estDistant, hoteAutorise, origineAutorisee } from "./acces.js";
 
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const TYPES_IMAGES = ["image/jpeg", "image/png", "image/webp"];
@@ -65,26 +68,6 @@ async function readJsonBody(req) {
   } catch {
     throw new Error("JSON invalide");
   }
-}
-
-// Seules les pages servies depuis cet ordinateur peuvent appeler l'API :
-// un site web ouvert dans le navigateur ne peut pas utiliser le serveur local.
-function origineAutorisee(req) {
-  const origine = req.headers.origin;
-  if (!origine) return true;
-  try {
-    const { hostname } = new URL(origine);
-    return hostname === "localhost" || hostname === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
-
-// Refuse les requêtes adressées sous un autre nom que cet ordinateur
-// (protection contre le « DNS rebinding » d'un site malveillant).
-function hoteAutorise(req) {
-  const hote = (req.headers.host || "").replace(/:\d+$/, "");
-  return hote === "localhost" || hote === "127.0.0.1";
 }
 
 async function routeHistorique(historique, req, _res, url) {
@@ -205,18 +188,70 @@ function messageErreurApi(err) {
 export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, fichierHistorique = FICHIER_HISTORIQUE } = {}) {
   const config = creerConfig(fichierConfig);
   const historique = creerHistorique(fichierHistorique);
+  const sessions = creerSessions();
   const statique = dossierStatique ? resolve(dossierStatique) : null;
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://local").pathname;
 
-    if (url.startsWith("/api/") && !hoteAutorise(req)) {
+    if (!hoteAutorise(req)) {
       return sendJson(res, 403, { error: "Hôte non autorisé." });
     }
     const coffre = url.startsWith("/api/historique") || url.startsWith("/api/patients");
-    const sensible = req.method === "POST" || coffre;
+    const sensible = req.method === "POST" || coffre || url === "/api/cabinet";
     if (sensible && !origineAutorisee(req)) {
       return sendJson(res, 403, { error: "Origine non autorisée." });
+    }
+
+    // Postes distants : connexion obligatoire avec le mot de passe du coffre.
+    const distant = estDistant(req);
+    if (req.method === "POST" && url === "/api/session/connexion") {
+      if (!distant) return sendJson(res, 200, { ok: true });
+      try {
+        const { motDePasse } = await readJsonBody(req);
+        if (!historique.etat().existe) {
+          return sendJson(res, 409, { error: "Le coffre n'est pas encore créé : ouvrez d'abord OrthoAI sur l'ordinateur serveur." });
+        }
+        await historique.deverrouiller(motDePasse);
+        sessions.ouvrir(res);
+        return sendJson(res, 200, { ok: true });
+      } catch (err) {
+        return sendJson(res, err.statut || 400, { error: err.message });
+      }
+    }
+    if (req.method === "POST" && url === "/api/session/deconnexion") {
+      sessions.fermer(req, res);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (distant && !sessions.valide(req)) {
+      if (url.startsWith("/api/")) return sendJson(res, 401, { error: "Connexion requise.", connexion: true });
+      // Pages : écran de connexion ; scripts, styles et images de l'interface restent servis.
+      if (req.method === "GET" && (url === "/" || url.endsWith(".html"))) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(PAGE_CONNEXION);
+        return undefined;
+      }
+    }
+    if (req.method === "GET" && url === "/api/session") return sendJson(res, 200, { distant });
+
+    if (url === "/api/cabinet") {
+      if (req.method === "GET") {
+        const { cabinet = null, appareils = null, appareilsConnus = null } = config.lire();
+        return sendJson(res, 200, { cabinet, appareils, appareilsConnus });
+      }
+      if (req.method === "POST") {
+        try {
+          const corps = await readJsonBody(req);
+          const valeurs = {};
+          if (corps.cabinet && typeof corps.cabinet === "object") valeurs.cabinet = corps.cabinet;
+          if (Array.isArray(corps.appareils)) valeurs.appareils = corps.appareils;
+          if (Array.isArray(corps.appareilsConnus)) valeurs.appareilsConnus = corps.appareilsConnus;
+          config.ecrire(valeurs);
+          return sendJson(res, 200, { ok: true });
+        } catch (err) {
+          return sendJson(res, 400, { error: err.message });
+        }
+      }
     }
 
     if (coffre) {

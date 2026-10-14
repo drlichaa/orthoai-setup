@@ -15,7 +15,8 @@
     "app:win": "vite build && electron-builder --win dir --publish never"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.1"
+    "@anthropic-ai/sdk": "^0.132.1",
+    "nodemailer": "^7.0.13"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

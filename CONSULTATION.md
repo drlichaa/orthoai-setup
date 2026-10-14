@@ -67,6 +67,24 @@ destinataire se saisissent dans l'application et ne sont jamais envoyés. Un cou
 s'ajoute avec les boutons **+ Dentiste**, **+ Orthophoniste**… Les courriers sont enregistrés dans
 l'historique avec le compte rendu.
 
+## Accès depuis les autres ordinateurs du cabinet
+
+Un ordinateur fait **serveur** (OrthoAI installé et ouvert) ; les autres postes ouvrent OrthoAI
+dans leur navigateur. Les dossiers, l'historique et les réglages du cabinet (en-tête, logo, signature,
+appareils) sont alors les mêmes partout. La liaison passe par **Tailscale**, un réseau privé chiffré :
+les données ne quittent pas le cabinet et aucun site n'est publié sur internet.
+
+1. Sur le serveur et sur chaque poste : installer **Tailscale** (https://tailscale.com/download)
+   et se connecter avec le **même compte**.
+2. Sur le serveur, une seule fois, dans le Terminal :
+   `tailscale serve --bg 8787` (adresse affichée : `https://<nom-du-serveur>.<réseau>.ts.net`).
+3. Sur chaque poste : ouvrir cette adresse dans Edge ou Chrome, puis se connecter avec le
+   **mot de passe du coffre**. Dans Edge : menu ⋯ → Applications → « Installer ce site en tant
+   qu'application » pour avoir une icône OrthoAI sur le bureau.
+
+Le serveur doit rester allumé : OrthoAI continue de tourner quand on ferme sa fenêtre
+(pour l'arrêter : menu OrthoAI → Quitter) et empêche la mise en veille.
+
 ## Historique des comptes rendus
 
 Le bouton **Historique** retrouve les comptes rendus déjà rédigés (recherche par nom, prénom ou date),

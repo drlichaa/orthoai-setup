@@ -6,6 +6,8 @@ export async function appelApi(chemin, corps) {
     body: corps ? JSON.stringify(corps) : undefined,
   });
   const donnees = await rep.json().catch(() => ({}));
+  // Poste distant dont la session a expiré : retour à l'écran de connexion.
+  if (rep.status === 401 && donnees.connexion) window.location.reload();
   if (!rep.ok) {
     const erreur = new Error(donnees.error || `Erreur ${rep.status}`);
     erreur.statut = rep.status;

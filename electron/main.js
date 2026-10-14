@@ -1,7 +1,7 @@
 // Application de bureau OrthoAI : une fenêtre qui regroupe la segmentation 3D
 // et le compte rendu de consultation. Le serveur local et Whisper sont
 // lancés automatiquement et arrêtés à la fermeture.
-import { app, BrowserWindow, dialog, Menu, session, shell, systemPreferences } from "electron";
+import { app, BrowserWindow, dialog, Menu, powerSaveBlocker, session, shell, systemPreferences } from "electron";
 import { join } from "node:path";
 import { demarrerServeur } from "../server/app.js";
 import { FICHIER_CONFIG } from "../server/chemins.js";
@@ -112,6 +112,10 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 
-  app.on("window-all-closed", () => app.quit());
+  // OrthoAI reste actif quand la fenêtre est fermée : les autres postes du
+  // cabinet continuent d'y accéder. Pour l'arrêter : menu OrthoAI → Quitter.
+  app.on("window-all-closed", () => {});
+  // Empêche la mise en veille de l'ordinateur serveur (l'écran peut s'éteindre).
+  app.whenReady().then(() => powerSaveBlocker.start("prevent-app-suspension"));
   app.on("before-quit", arreterWhisper);
 }
