@@ -78,10 +78,16 @@ if (-not (Test-Path $FichierVad)) {
 }
 
 # 4. Vérification : le programme démarre-t-il ?
-& $Exe.FullName --help *> $null
-if ($LASTEXITCODE -ne 0 -and $Nvidia) {
+# Whisper écrit des messages d'information sur la sortie d'erreur : Windows
+# PowerShell les prendrait pour des erreurs, seul le code de sortie compte ici.
+$Preference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& $Exe.FullName --help 2>&1 | Out-Null
+$CodeSortie = $LASTEXITCODE
+$ErrorActionPreference = $Preference
+if ($CodeSortie -ne 0 -and $Nvidia) {
   Write-Warning "La version CUDA ne démarre pas (pilote NVIDIA trop ancien ?). Relancez avec : installer-whisper.cmd -Cpu"
 }
 
 Write-Host ""
-Write-Host "Whisper est installé. Lancez l'application avec Demarrer.cmd." -ForegroundColor Green
+Write-Host "Whisper est installé." -ForegroundColor Green
