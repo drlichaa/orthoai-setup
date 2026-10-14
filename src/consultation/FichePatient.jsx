@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import { texteExtractions } from "./modelesCourriers.js";
-import { appelApi, envoyerImage } from "./apiHistorique.js";
+import { appelApi, envoyerFichier, envoyerImage } from "./apiHistorique.js";
+import { SCENARIOS_PAR_DEFAUT, ligneSuivi } from "./scenarios.js";
+import SeriesImages, { PlancheDocument } from "./SeriesImages.jsx";
 import {
   STATUT_TRAITEMENT,
   accorder,
@@ -129,6 +131,7 @@ const FILS = [
 // Dossiers créés avant l'ajout de certains champs.
 const ARC_VIDE = { fil: "", depuis: "" };
 const DEFAUTS = {
+  series: [],
   courriers: [],
   dents: {},
   dentsTemporaires: false,
@@ -179,6 +182,8 @@ export default function FichePatient({
   const [onglet, setOnglet] = useState("clinique");
   // Courrier du dossier en cours d'impression (index).
   const [courrierImprime, setCourrierImprime] = useState(null);
+  // Planche photos en cours d'impression.
+  const [plancheImprimee, setPlancheImprimee] = useState(null);
   const enAttente = useRef(null);
   const minuteur = useRef(null);
   // Rappel du parent conservé à part : le recharger ne doit pas relire la fiche.
@@ -326,10 +331,15 @@ export default function FichePatient({
   );
 
   const courrierAImprimer = courrierImprime === null ? null : patient.courriers[courrierImprime];
+  const scenarios = cabinet?.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT;
+  // Images hors séries (anciennes, radios annotées…) et sans les empreintes 3D.
+  const mediasSeries = new Set(patient.series.flatMap((s) => Object.values(s.elements).map((e) => e.media)));
+  const images = patient.medias.filter((m) => m.type !== "model/stl");
+  const autresImages = images.filter((m) => !mediasSeries.has(m.id));
 
   return (
     <>
-      <div className={courrierAImprimer ? "no-print" : undefined}>
+      <div className={courrierAImprimer || plancheImprimee ? "no-print" : undefined}>
         <header className="cr-entete">
           <button type="button" className="secondaire" onClick={onRetour}>
             ← Liste des patients
@@ -403,7 +413,7 @@ export default function FichePatient({
           {[
             ["clinique", "Fiche clinique"],
             ["patient", "Patient"],
-            ["images", `Photos & radios (${patient.medias.length})`],
+            ["images", `Photos & radios (${images.length})`],
           ].map(([cle, libelle]) => (
             <button
               key={cle}
@@ -652,7 +662,7 @@ export default function FichePatient({
                 courriers={patient.courriers}
                 onChange={(courriers) => maj({ courriers: courriers.map((c) => ({ date: aujourdhui(), ...c })) })}
                 onImprimer={imprimerCourrier}
-                medias={patient.medias}
+                medias={images}
                 onJoindreImage={async (index, fichier) => {
                   // L'image annotée est rangée avec les autres, chiffrée, sans ligne de suivi.
                   const media = await envoyerImage(patientId, fichier);
@@ -807,40 +817,75 @@ export default function FichePatient({
         )}
 
         {onglet === "images" && (
-          <section className="cr-carte">
-            <div className="cr-titre-section">
-              <h2>Photos et radios</h2>
-              <label className="cr-bouton-fichier">
-                {envoiImages > 0 ? "Envoi…" : "+ Ajouter des images"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={(e) => {
-                    ajouterImages([...e.target.files]);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-            </div>
-            {patient.medias.length === 0 ? (
-              <p className="cr-aide">Aucune image. Les photos et radios sont chiffrées sur cet ordinateur.</p>
-            ) : (
-              <div className="cr-galerie">
-                {patient.medias.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className="cr-vignette"
-                    onClick={() => setImageOuverte(m)}
-                    title={m.nom}
-                  >
-                    <img src={`/api/patients/media/${m.id}`} alt={m.nom} loading="lazy" />
-                  </button>
-                ))}
+          <>
+            <SeriesImages
+              patient={patient}
+              scenarios={scenarios}
+              televerser={async (fichier) => {
+                const media = await envoyerFichier(patientId, fichier);
+                definir({ ...dernier.current, medias: [...dernier.current.medias, media] });
+                return media;
+              }}
+              supprimerMedia={async (id) => {
+                await appelApi("/patients/media/supprimer", { patient: patientId, id });
+                definir({ ...dernier.current, medias: dernier.current.medias.filter((m) => m.id !== id) });
+              }}
+              changerSeries={(series, serie) => {
+                const scenario = serie && scenarios.find((x) => x.id === serie.scenario);
+                maj(
+                  {
+                    series,
+                    // Noté dans la séance du jour : « Bilan initial : 12 photos ».
+                    ...(scenario
+                      ? { seances: noterLigne(dernier.current.seances, `${serie.nom} : `, ligneSuivi(serie, scenario)) }
+                      : {}),
+                  },
+                  { immediat: true },
+                );
+              }}
+              onImprimer={(serie) => {
+                flushSync(() => setPlancheImprimee(serie));
+                window.print();
+                setPlancheImprimee(null);
+              }}
+            />
+            <section className="cr-carte">
+              <div className="cr-titre-section">
+                <h2>Autres images</h2>
+                <label className="cr-bouton-fichier">
+                  {envoiImages > 0 ? "Envoi…" : "+ Ajouter des images"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      ajouterImages([...e.target.files]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
-            )}
-          </section>
+              {autresImages.length === 0 ? (
+                <p className="cr-aide">
+                  Aucune autre image. Toutes les images sont chiffrées sur le serveur du cabinet.
+                </p>
+              ) : (
+                <div className="cr-galerie">
+                  {autresImages.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="cr-vignette"
+                      onClick={() => setImageOuverte(m)}
+                      title={m.nom}
+                    >
+                      <img src={`/api/patients/media/${m.id}`} alt={m.nom} loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
 
         {imageOuverte && (
@@ -865,6 +910,14 @@ export default function FichePatient({
           </div>
         )}
       </div>
+      {plancheImprimee && (
+        <PlancheDocument
+          serie={plancheImprimee}
+          scenario={scenarios.find((x) => x.id === plancheImprimee.scenario)}
+          patient={patient}
+          cabinet={cabinet}
+        />
+      )}
       {courrierAImprimer && (
         <CourrierDocument
           courrier={courrierAImprimer}

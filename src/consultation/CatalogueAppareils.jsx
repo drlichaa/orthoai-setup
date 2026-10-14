@@ -1,5 +1,6 @@
 // Réglages du cabinet et catalogue des appareils avec leurs textes pré-enregistrés.
 import CleApi from "./CleApi.jsx";
+import { OPERATIONS, SCENARIOS_PAR_DEFAUT } from "./scenarios.js";
 
 function identifiant(nom, existants) {
   const base =
@@ -68,13 +69,106 @@ function ChampImage({ libelle, valeur, onChange }) {
   );
 }
 
-export default function CatalogueAppareils({ appareils, onChange, onReinitialiser, cabinet, onCabinetChange, onFermer }) {
-  const maj = (index, champ, valeur) => onChange(appareils.map((a, i) => (i === index ? { ...a, [champ]: valeur } : a)));
+// Opérations appliquées automatiquement à chaque photo d'un scénario, dans l'ordre.
+function EditeurScenarios({ scenarios, onChange, onReinitialiser }) {
+  const modifier = (s, e, rang, valeur) =>
+    onChange(
+      scenarios.map((sc, i) =>
+        i !== s
+          ? sc
+          : {
+              ...sc,
+              elements: sc.elements.map((el, j) => {
+                if (j !== e) return el;
+                const operations = [el.operations[0] || "", el.operations[1] || ""];
+                operations[rang] = valeur;
+                return { ...el, operations: operations.filter(Boolean) };
+              }),
+            },
+      ),
+    );
+
+  return (
+    <section className="cr-carte">
+      <div className="cr-titre-section">
+        <h2>Scénarios photos</h2>
+        <button
+          type="button"
+          className="secondaire"
+          onClick={() => window.confirm("Revenir aux scénarios par défaut ?") && onReinitialiser()}
+        >
+          Réinitialiser
+        </button>
+      </div>
+      <p className="cr-aide">
+        Opérations appliquées automatiquement à chaque photo, dans l'ordre (opération 1 puis 2), lors du dépôt des
+        photos d'une série. Partagé par tous les postes du cabinet.
+      </p>
+      {scenarios
+        .map((scenario, s) => ({ scenario, s }))
+        .filter(({ scenario }) => scenario.genre === "photos")
+        .map(({ scenario, s }) => (
+          <details key={scenario.id} className="cr-scenario">
+            <summary>
+              {scenario.nom} ({scenario.elements.length} photos)
+            </summary>
+            <table className="cr-seances">
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Photo</th>
+                  <th>Opération 1</th>
+                  <th>Opération 2</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenario.elements.map((element, e) => (
+                  <tr key={element.cle}>
+                    <td>{e + 1}</td>
+                    <td>{element.nom}</td>
+                    {[0, 1].map((rang) => (
+                      <td key={rang}>
+                        <select
+                          value={element.operations[rang] || ""}
+                          aria-label={`${element.nom} : opération ${rang + 1}`}
+                          onChange={(ev) => modifier(s, e, rang, ev.target.value)}
+                        >
+                          {OPERATIONS.map(([cle, libelle]) => (
+                            <option key={cle} value={cle}>
+                              {libelle}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
+        ))}
+    </section>
+  );
+}
+
+export default function CatalogueAppareils({
+  appareils,
+  onChange,
+  onReinitialiser,
+  cabinet,
+  onCabinetChange,
+  onFermer,
+}) {
+  const maj = (index, champ, valeur) =>
+    onChange(appareils.map((a, i) => (i === index ? { ...a, [champ]: valeur } : a)));
 
   function ajouter() {
     const nom = window.prompt("Nom du nouvel appareil ?");
     if (!nom?.trim()) return;
-    const id = identifiant(nom, appareils.map((a) => a.id));
+    const id = identifiant(
+      nom,
+      appareils.map((a) => a.id),
+    );
     onChange([...appareils, { id, nom: nom.trim(), indication: "", texte: "" }]);
   }
 
@@ -143,7 +237,10 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
           </label>
           <label>
             Le praticien est
-            <select value={cabinet.genre || ""} onChange={(e) => onCabinetChange({ ...cabinet, genre: e.target.value })}>
+            <select
+              value={cabinet.genre || ""}
+              onChange={(e) => onCabinetChange({ ...cabinet, genre: e.target.value })}
+            >
               <option value="F">une femme (« reconnaissante », « informée »)</option>
               <option value="M">un homme (« reconnaissant », « informé »)</option>
               <option value="">non précisé (« reconnaissant(e) »)</option>
@@ -179,6 +276,12 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
         </div>
       </section>
 
+      <EditeurScenarios
+        scenarios={cabinet.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT}
+        onChange={(scenarios) => onCabinetChange({ ...cabinet, scenarios })}
+        onReinitialiser={() => onCabinetChange({ ...cabinet, scenarios: [] })}
+      />
+
       <CleApi />
 
       <section className="cr-carte">
@@ -198,8 +301,8 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
           </div>
         </div>
         <p className="cr-aide">
-          Le nom et l'indication aident l'IA à reconnaître l'appareil que vous proposez à l'oral. Le texte est recopié tel
-          quel dans le compte rendu. Tout est enregistré dans ce navigateur.
+          Le nom et l'indication aident l'IA à reconnaître l'appareil que vous proposez à l'oral. Le texte est recopié
+          tel quel dans le compte rendu. Tout est enregistré dans ce navigateur.
         </p>
         {appareils.map((a, i) => (
           <div key={a.id} className="cr-appareil-edition">

@@ -289,3 +289,43 @@ select.cr-pastille { cursor: pointer; padding-right: 6px; }
 .cr-couleur { width: 28px; height: 28px; padding: 0; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.5); }
 .cr-couleur.actif { border-color: #fff; box-shadow: 0 0 0 2px var(--cr-accent); }
 .cr-visionneuse.cr-annotation { background: #0a182b; }
+
+/* Séries photos / radios / empreintes */
+.cr-bouton-aligne { margin-top: 0 !important; align-self: end; }
+.cr-date-serie { width: auto; }
+.cr-cases { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); margin-top: 10px; }
+.cr-cases-radios, .cr-cases-stl { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.cr-case-image { border: 1px dashed #b9c4d6; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 6px; background: #fbfcfe; }
+.cr-case-image.remplie { border-style: solid; border-color: var(--cr-bord); background: #fff; }
+.cr-case-image.survol { border-color: var(--cr-accent); background: var(--cr-accent-fond); }
+.cr-case-titre { font-size: 0.8rem; font-weight: 700; color: var(--cr-doux); }
+.cr-case-vide { flex: 1; min-height: 110px; display: grid; place-items: center; text-align: center; font-size: 0.8rem; font-weight: 500; color: #8a97ab; cursor: pointer; border-radius: 8px; }
+.cr-case-vide input { display: none; }
+.cr-case-apercu { padding: 0; border: 0; background: #000; border-radius: 6px; overflow: hidden; height: 120px; }
+.cr-cases-radios .cr-case-apercu { height: 170px; }
+.cr-case-apercu img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.cr-case-stl { height: 110px; background: #1d2433; color: #fff; }
+.cr-case-outils { display: flex; gap: 4px; flex-wrap: wrap; }
+.cr-case-outils button { padding: 2px 8px; font-size: 0.95rem; background: #fff; border-color: var(--cr-bord); color: var(--cr-texte); }
+.cr-case-outils button.danger { color: var(--cr-danger); margin-left: auto; }
+.cr-case-date { font-size: 0.75rem; }
+.cr-case-date input { padding: 4px 6px; font-size: 0.85rem; }
+.cr-visionneuse-stl { justify-content: flex-start; }
+.cr-stl-zone { position: relative; width: 100%; flex: 1; min-height: 300px; border-radius: 8px; overflow: hidden; }
+.cr-stl-zone canvas { display: block; }
+.cr-stl-etat { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; margin: 0; }
+
+/* Planche photos imprimée (A4 paysage) */
+@page planche { size: A4 landscape; margin: 8mm; }
+.cr-planche { page: planche; font-family: Georgia, "Times New Roman", serif; color: #1f3a93; position: relative; }
+.cr-planche-date { font-size: 10pt; margin-bottom: 4mm; }
+.cr-planche-ligne { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3mm; margin-bottom: 3mm; height: 58mm; overflow: hidden; }
+.cr-planche-ligne.seule { grid-template-columns: 1fr; height: 16mm; }
+.cr-planche-photo { height: 100%; min-height: 0; overflow: hidden; }
+.cr-planche-photo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.cr-planche-info { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-size: 11pt; gap: 1mm; }
+.cr-planche-ligne.seule .cr-planche-info { flex-direction: row; justify-content: space-between; }
+.cr-planche-info img { max-height: 28mm; max-width: 40mm; object-fit: contain; }
+.cr-planche-ligne.seule .cr-planche-info img { max-height: 12mm; }
+.cr-stl-toile { position: absolute; inset: 0; }
+.cr-scenario { margin-top: 10px; } .cr-scenario summary { cursor: pointer; font-weight: 600; padding: 6px 0; } .cr-scenario select { width: auto; }

@@ -311,6 +311,20 @@ export function creerHistorique(fichier) {
         ...(s?.compteRendu ? { compteRendu: texte(s.compteRendu, 100) } : {}),
       })),
       medias: existant?.medias || [],
+      // Séries de photos, radios ou empreintes 3D : élément du scénario → média.
+      series: liste(brut.series)
+        .filter((s) => /^[\w-]{1,100}$/.test(s?.id || ""))
+        .map((s) => ({
+          id: s.id,
+          scenario: texte(s.scenario, 50),
+          nom: texte(s.nom, 100),
+          date: texte(s.date, 10),
+          elements: Object.fromEntries(
+            Object.entries(s.elements && typeof s.elements === "object" ? s.elements : {})
+              .filter(([cle, e]) => /^[\w-]{1,50}$/.test(cle) && /^[\w-]{1,100}$/.test(e?.media || ""))
+              .map(([cle, e]) => [cle, { media: e.media, date: texte(e.date, 10) }]),
+          ),
+        })),
     };
   }
 

@@ -48,6 +48,19 @@ les **photos et radios**. Les modifications s'enregistrent automatiquement.
 - Tout est dans le même coffre chiffré que l'historique, avec le même mot de passe, photos et radios comprises,
   et reste sur cet ordinateur.
 
+## Photos, radios et empreintes 3D
+
+Onglet **Photos & radios** du dossier : chaque **série** suit un scénario (comme dans OrthoFast).
+
+- **Bilan initial** (12 photos) et **Contrôle qualité** (7 photos) : « Déposer toutes les photos » range
+  les photos dans l'ordre de prise de vue et applique les rotations / symétries du scénario ; une photo
+  peut aussi être glissée dans sa case et corrigée (⟲ ⟳ ⇅ ⇆). **Imprimer la planche** : A4 paysage avec
+  logo, praticien, patient et âge.
+- **Radiographies** : panoramique et téléradiographie de profil, avec leur date.
+- **Empreintes 3D** : fichiers **.stl** (exportés de 3Shape), visibles en 3D.
+- Chaque ajout est noté dans la séance du jour (« Bilan initial : 12 photos »).
+- Opérations des scénarios modifiables dans **Appareils & cabinet → Scénarios photos**.
+
 ## Courriers aux confrères
 
 Quand la consultation évoque un adressage, le compte rendu propose le courrier correspondant

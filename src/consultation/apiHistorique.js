@@ -20,6 +20,19 @@ export function appelHistorique(chemin, corps) {
   return appelApi(`/historique${chemin}`, corps);
 }
 
+// Envoie un fichier déjà prêt (photo traitée, empreinte STL), chiffré par le serveur.
+export async function envoyerFichier(patientId, fichier) {
+  const parametres = new URLSearchParams({ patient: patientId, nom: fichier.name });
+  const rep = await fetch(`/api/patients/media?${parametres}`, {
+    method: "POST",
+    headers: { "Content-Type": fichier.type },
+    body: fichier,
+  });
+  const donnees = await rep.json().catch(() => ({}));
+  if (!rep.ok) throw new Error(donnees.error || `Erreur ${rep.status}`);
+  return donnees.media;
+}
+
 // Réduit la photo ou la radio (2400 px max) puis l'envoie, chiffrée par le serveur.
 export async function envoyerImage(patientId, fichier) {
   const bitmap = await createImageBitmap(fichier).catch(() => {

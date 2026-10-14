@@ -24,6 +24,9 @@ const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const TYPES_IMAGES = ["image/jpeg", "image/png", "image/webp"];
+// Empreintes 3D (3Shape…) : fichiers STL, plus volumineux.
+const TYPE_STL = "model/stl";
+const MAX_STL_BYTES = 150 * 1024 * 1024;
 
 const TYPES_MIME = {
   ".html": "text/html; charset=utf-8",
@@ -108,8 +111,10 @@ async function routePatients(historique, req, res, url) {
   // Image envoyée telle quelle (corps binaire), chiffrée à l'enregistrement.
   if (methode === "POST" && url === "/api/patients/media") {
     const type = (req.headers["content-type"] || "").split(";")[0];
-    if (!TYPES_IMAGES.includes(type)) throw new ErreurHistorique(415, "Format d'image non pris en charge (JPG, PNG ou WebP).");
-    const octets = await readBody(req, MAX_IMAGE_BYTES);
+    if (!TYPES_IMAGES.includes(type) && type !== TYPE_STL) {
+      throw new ErreurHistorique(415, "Format non pris en charge (JPG, PNG, WebP ou STL).");
+    }
+    const octets = await readBody(req, type === TYPE_STL ? MAX_STL_BYTES : MAX_IMAGE_BYTES);
     return { media: historique.ajouterMedia(parametres.get("patient"), parametres.get("nom"), type, octets) };
   }
   const corps = methode === "POST" ? await readJsonBody(req) : {};
