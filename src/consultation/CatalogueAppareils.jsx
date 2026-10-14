@@ -15,6 +15,59 @@ function identifiant(nom, existants) {
   return id;
 }
 
+// Réduit l'image (logo, signature) pour qu'elle tienne dans le stockage local.
+async function lireImage(fichier, tailleMax = 600) {
+  const url = await new Promise((resolve, reject) => {
+    const lecteur = new FileReader();
+    lecteur.onload = () => resolve(lecteur.result);
+    lecteur.onerror = reject;
+    lecteur.readAsDataURL(fichier);
+  });
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error("Image illisible : choisissez un fichier PNG ou JPG."));
+    image.src = url;
+  });
+  const echelle = Math.min(1, tailleMax / Math.max(image.width, image.height));
+  const toile = document.createElement("canvas");
+  toile.width = Math.round(image.width * echelle);
+  toile.height = Math.round(image.height * echelle);
+  toile.getContext("2d").drawImage(image, 0, 0, toile.width, toile.height);
+  return toile.toDataURL("image/png");
+}
+
+function ChampImage({ libelle, valeur, onChange }) {
+  async function choisir(e) {
+    const fichier = e.target.files?.[0];
+    e.target.value = "";
+    if (!fichier) return;
+    try {
+      onChange(await lireImage(fichier));
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  return (
+    <div className="cr-champ-image">
+      <span>{libelle}</span>
+      {valeur ? <img src={valeur} alt="" /> : <em>Aucune image</em>}
+      <div className="cr-actions">
+        <label className="cr-bouton-fichier">
+          {valeur ? "Remplacer" : "Choisir une image"}
+          <input type="file" accept="image/png,image/jpeg" onChange={choisir} />
+        </label>
+        {valeur && (
+          <button type="button" className="danger" onClick={() => onChange("")}>
+            Retirer
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CatalogueAppareils({ appareils, onChange, onReinitialiser, cabinet, onCabinetChange, onFermer }) {
   const maj = (index, champ, valeur) => onChange(appareils.map((a, i) => (i === index ? { ...a, [champ]: valeur } : a)));
 
@@ -50,7 +103,7 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
       </header>
 
       <section className="cr-carte">
-        <h2>En-tête du compte rendu</h2>
+        <h2>En-tête du compte rendu et des courriers</h2>
         <div className="cr-champs-ligne cr-champs-larges">
           <label>
             Praticien
@@ -88,6 +141,41 @@ export default function CatalogueAppareils({ appareils, onChange, onReinitialise
               onChange={(e) => onCabinetChange({ ...cabinet, email: e.target.value })}
             />
           </label>
+          <label>
+            Le praticien est
+            <select value={cabinet.genre || ""} onChange={(e) => onCabinetChange({ ...cabinet, genre: e.target.value })}>
+              <option value="F">une femme (« reconnaissante », « informée »)</option>
+              <option value="M">un homme (« reconnaissant », « informé »)</option>
+              <option value="">non précisé (« reconnaissant(e) »)</option>
+            </select>
+          </label>
+          <label>
+            Ville (date des courriers)
+            <input
+              value={cabinet.ville}
+              placeholder="Le Chesnay-Rocquencourt"
+              onChange={(e) => onCabinetChange({ ...cabinet, ville: e.target.value })}
+            />
+          </label>
+          <label>
+            N° ADELI / RPPS
+            <input
+              value={cabinet.identifiant}
+              onChange={(e) => onCabinetChange({ ...cabinet, identifiant: e.target.value })}
+            />
+          </label>
+        </div>
+        <div className="cr-champs-ligne cr-images">
+          <ChampImage
+            libelle="Logo (courriers et ordonnances)"
+            valeur={cabinet.logo}
+            onChange={(logo) => onCabinetChange({ ...cabinet, logo })}
+          />
+          <ChampImage
+            libelle="Signature (scan ou photo sur fond blanc)"
+            valeur={cabinet.signature}
+            onChange={(signature) => onCabinetChange({ ...cabinet, signature })}
+          />
         </div>
       </section>
 

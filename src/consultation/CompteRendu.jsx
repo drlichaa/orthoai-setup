@@ -1,10 +1,5 @@
-// Document remis au patient : aperçu à l'écran et seule partie imprimée.
-
-function formaterDate(iso) {
-  if (!iso) return "";
-  const [a, m, j] = iso.split("-");
-  return `${j}/${m}/${a}`;
-}
+// Document remis au patient : aperçu à l'écran et partie imprimée.
+import { accorder, formaterDate, nomPatient as formaterNom } from "./format.js";
 
 function Ligne({ libelle, valeur }) {
   if (!valeur || !valeur.trim()) return null;
@@ -22,7 +17,7 @@ export default function CompteRendu({ rapport, patient, cabinet, appareils }) {
     .filter(Boolean)
     .join(" – ");
   const appareilsChoisis = plan.appareils.map((id) => appareils.find((a) => a.id === id)).filter(Boolean);
-  const nomPatient = [patient.prenom, patient.nom.toUpperCase()].filter(Boolean).join(" ");
+  const nomPatient = formaterNom(patient);
 
   return (
     <article className="cr-document">
@@ -44,7 +39,7 @@ export default function CompteRendu({ rapport, patient, cabinet, appareils }) {
       {(nomPatient || patient.naissance) && (
         <p className="cr-doc-patient">
           Patient : <strong>{nomPatient}</strong>
-          {patient.naissance && <> — né(e) le {formaterDate(patient.naissance)}</>}
+          {patient.naissance && <> — {accorder("né(e)", patient.sexe)} le {formaterDate(patient.naissance)}</>}
         </p>
       )}
 

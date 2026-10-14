@@ -1,16 +1,32 @@
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import APPAREILS_PAR_DEFAUT from "./appareilsParDefaut.js";
 import ANCIENS_TEXTES from "./anciensTextes.js";
 import useEnregistrement, { enregistrementDisponible } from "./useEnregistrement.js";
 import CompteRendu from "./CompteRendu.jsx";
+import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import CatalogueAppareils from "./CatalogueAppareils.jsx";
 import Historique, { Verrou } from "./Historique.jsx";
+import Patients from "./Patients.jsx";
 import { appelHistorique } from "./apiHistorique.js";
+import { resumeClinique } from "./resumeClinique.js";
 
 const CLE_APPAREILS = "cr-ortho:appareils";
 const CLE_CABINET = "cr-ortho:cabinet";
 const CLE_APPAREILS_CONNUS = "cr-ortho:appareils-connus";
-const CABINET_VIDE = { praticien: "", cabinet: "", coordonnees: "", telephone: "", email: "" };
+const CABINET_VIDE = {
+  praticien: "",
+  cabinet: "",
+  coordonnees: "",
+  telephone: "",
+  email: "",
+  ville: "",
+  identifiant: "",
+  // Accord des courriers : « reconnaissante », « informée »…
+  genre: "F",
+  logo: "",
+  signature: "",
+};
 
 const CHAMPS_DIAGNOSTIC = [
   ["formule_dentaire", "Formule dentaire"],
@@ -36,6 +52,8 @@ const RAPPORT_VIDE = {
     panoramique: "",
   },
   plan_traitement: { resume: "", appareils: [], appareils_hors_catalogue: [], duree_estimee: "" },
+  dents: { agenesies: [], a_extraire: [], incluses: [] },
+  courriers: [],
   points_a_verifier: [],
 };
 
@@ -98,6 +116,32 @@ function pseudonymiser(texte, patient) {
   return resultat;
 }
 
+// Liste de dents FDI saisie « 12, 22 » ; le texte saisi est gardé tel quel
+// pendant la frappe, seules les dents valides sont enregistrées.
+function ChampDents({ libelle, dents, onChange }) {
+  const [texte, setTexte] = useState(dents.join(", "));
+  const [dentsAffichees, setDentsAffichees] = useState(dents);
+  if (dents !== dentsAffichees) {
+    setDentsAffichees(dents);
+    setTexte(dents.join(", "));
+  }
+  return (
+    <label>
+      {libelle}
+      <input
+        value={texte}
+        placeholder="Ex. : 12, 22"
+        onChange={(e) => {
+          setTexte(e.target.value);
+          const liste = [...new Set(e.target.value.match(/\b[1-8][1-8]\b/g) || [])];
+          setDentsAffichees(liste);
+          onChange(liste);
+        }}
+      />
+    </label>
+  );
+}
+
 function EtatServeur({ sante }) {
   if (!sante) return null;
   if (sante.horsLigne) {
@@ -126,19 +170,33 @@ export default function ConsultationApp() {
   const [rapport, setRapport] = useState(null);
   const [chargement, setChargement] = useState(false);
   const [erreurApi, setErreurApi] = useState("");
-  const [vue, setVue] = useState("consultation");
+  // « #patients » dans l'adresse ouvre directement les dossiers patients (menu, accueil).
+  const [vue, setVue] = useState(() => (window.location.hash === "#patients" ? "patients" : "consultation"));
+  // Dossier patient rattaché à la consultation, et dossier affiché dans « Patients ».
+  const [patientId, setPatientId] = useState(null);
+  const [patientSelectionne, setPatientSelectionne] = useState(null);
   const [secondes, setSecondes] = useState(0);
   // Fiche de l'historique en cours d'édition et état de son enregistrement.
   const [idHistorique, setIdHistorique] = useState(null);
   const [appareilsFiges, setAppareilsFiges] = useState([]);
   const [signatureEnregistree, setSignatureEnregistree] = useState("");
   const [sauvegarde, setSauvegarde] = useState({ enCours: false, erreur: "", verrou: null });
+  // Courrier en cours d'impression (index), sinon le compte rendu est imprimé.
+  const [courrierImprime, setCourrierImprime] = useState(null);
 
   useEffect(() => {
     ecrireStockage(CLE_APPAREILS, appareils);
     ecrireStockage(CLE_APPAREILS_CONNUS, APPAREILS_PAR_DEFAUT.map((a) => a.id));
   }, [appareils]);
   useEffect(() => ecrireStockage(CLE_CABINET, cabinet), [cabinet]);
+
+  useEffect(() => {
+    const surHash = () => {
+      if (window.location.hash === "#patients") setVue("patients");
+    };
+    window.addEventListener("hashchange", surHash);
+    return () => window.removeEventListener("hashchange", surHash);
+  }, []);
 
   const ajouterTexte = useCallback((texte) => {
     if (!texte) return;
@@ -195,6 +253,7 @@ export default function ConsultationApp() {
         ...donnees.report,
         diagnostic: { ...RAPPORT_VIDE.diagnostic, ...donnees.report.diagnostic },
         plan_traitement: { ...RAPPORT_VIDE.plan_traitement, ...donnees.report.plan_traitement },
+        dents: { ...RAPPORT_VIDE.dents, ...donnees.report.dents },
       });
     } catch (err) {
       setErreurApi(err.message);
@@ -214,14 +273,22 @@ export default function ConsultationApp() {
   async function enregistrerHistorique({ silencieux = false } = {}) {
     setSauvegarde({ enCours: true, erreur: "", verrou: null });
     try {
+      const resume = resumeClinique(rapport, appareilsAffiches);
       const { fiche } = await appelHistorique("/enregistrer", {
         id: idHistorique,
+        patientId,
+        // Pré-remplit le dossier patient s'il est créé à cette occasion.
+        resumeClinique: {
+          diagnostic: resume.diagnostic.map((l) => `- ${l}`).join("\n"),
+          plan: resume.traitement.map((l) => `- ${l}`).join("\n"),
+        },
         patient,
         rapport,
         notes,
         appareils: appareilsAffiches.filter((a) => rapport.plan_traitement.appareils.includes(a.id)),
       });
       setIdHistorique(fiche.id);
+      setPatientId(fiche.patientId);
       setSignatureEnregistree(signature);
       setSauvegarde({ enCours: false, erreur: "", verrou: null });
       return true;
@@ -233,15 +300,22 @@ export default function ConsultationApp() {
     }
   }
 
-  async function imprimer() {
+  async function imprimer(indexCourrier = null) {
     // Enregistre au passage si l'historique est déverrouillé.
     if (!enregistre) await enregistrerHistorique({ silencieux: true });
+    flushSync(() => setCourrierImprime(indexCourrier));
     window.print();
+    setCourrierImprime(null);
   }
 
+  const consultationEnCours = (rapport && !enregistre) || (!rapport && transcription.trim());
+
   function ouvrirFiche(fiche) {
-    const enCours = (rapport && !enregistre) || (!rapport && transcription.trim());
-    if (enCours && !window.confirm("La consultation en cours n'est pas enregistrée. L'abandonner pour ouvrir ce compte rendu ?")) return;
+    if (
+      consultationEnCours &&
+      !window.confirm("La consultation en cours n'est pas enregistrée. L'abandonner pour ouvrir ce compte rendu ?")
+    )
+      return;
     micro.arreter();
     micro.oublierEchecs();
     const rapportOuvert = {
@@ -249,6 +323,7 @@ export default function ConsultationApp() {
       ...fiche.rapport,
       diagnostic: { ...RAPPORT_VIDE.diagnostic, ...fiche.rapport.diagnostic },
       plan_traitement: { ...RAPPORT_VIDE.plan_traitement, ...fiche.rapport.plan_traitement },
+      dents: { ...RAPPORT_VIDE.dents, ...fiche.rapport.dents },
     };
     const patientOuvert = { nom: "", prenom: "", naissance: "", date: aujourdhui(), ...fiche.patient };
     const notesOuvertes = fiche.notes || "";
@@ -259,21 +334,26 @@ export default function ConsultationApp() {
     setSecondes(0);
     setErreurApi("");
     setIdHistorique(fiche.id);
+    setPatientId(fiche.patientId || null);
     setAppareilsFiges(fiche.appareils || []);
     setSignatureEnregistree(JSON.stringify({ patient: patientOuvert, rapport: rapportOuvert, notes: notesOuvertes }));
     setSauvegarde({ enCours: false, erreur: "", verrou: null });
     setVue("consultation");
   }
 
-  function nouvelleConsultation() {
-    const message =
-      rapport && !enregistre
-        ? "Le compte rendu n'est pas enregistré dans l'historique. Effacer quand même la consultation ?"
-        : "Effacer la consultation en cours ?";
-    if (!window.confirm(message)) return;
+  async function ouvrirCompteRendu(id) {
+    try {
+      ouvrirFiche((await appelHistorique(`/fiche/${id}`)).fiche);
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  function viderConsultation(identite = {}, idPatient = null) {
     micro.arreter();
     micro.oublierEchecs();
-    setPatient({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
+    setPatient({ nom: "", prenom: "", naissance: "", ...identite, date: aujourdhui() });
+    setPatientId(idPatient);
     setTranscription("");
     setNotes("");
     setRapport(null);
@@ -283,6 +363,31 @@ export default function ConsultationApp() {
     setAppareilsFiges([]);
     setSignatureEnregistree("");
     setSauvegarde({ enCours: false, erreur: "", verrou: null });
+  }
+
+  function nouvelleConsultation() {
+    const message =
+      rapport && !enregistre
+        ? "Le compte rendu n'est pas enregistré dans l'historique. Effacer quand même la consultation ?"
+        : "Effacer la consultation en cours ?";
+    if (!window.confirm(message)) return;
+    viderConsultation();
+  }
+
+  // Depuis un dossier patient : nouvelle consultation déjà rattachée au dossier.
+  function consultationPour(p) {
+    if (
+      consultationEnCours &&
+      !window.confirm("La consultation en cours n'est pas enregistrée. L'abandonner pour commencer celle-ci ?")
+    )
+      return;
+    viderConsultation({ nom: p.nom, prenom: p.prenom, naissance: p.naissance, sexe: p.sexe || "" }, p.id);
+    setVue("consultation");
+  }
+
+  function fermerPatients() {
+    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+    setVue("consultation");
   }
 
   const majDiagnostic = (cle, valeur) =>
@@ -295,6 +400,19 @@ export default function ConsultationApp() {
       const suivants = actuels.includes(id) ? actuels.filter((a) => a !== id) : [...actuels, id];
       return { ...r, plan_traitement: { ...r.plan_traitement, appareils: suivants } };
     });
+
+  if (vue === "patients") {
+    return (
+      <Patients
+        patientId={patientSelectionne}
+        onSelection={setPatientSelectionne}
+        onOuvrirCompteRendu={ouvrirCompteRendu}
+        onNouvelleConsultation={consultationPour}
+        onFermer={fermerPatients}
+        cabinet={cabinet}
+      />
+    );
+  }
 
   if (vue === "historique") {
     return <Historique onOuvrir={ouvrirFiche} onFermer={() => setVue("consultation")} />;
@@ -321,6 +439,28 @@ export default function ConsultationApp() {
           <a className="cr-lien-accueil" href="/accueil.html">
             ← Accueil
           </a>
+          {patientId && (
+            <button
+              type="button"
+              className="secondaire"
+              onClick={() => {
+                setPatientSelectionne(patientId);
+                setVue("patients");
+              }}
+            >
+              Dossier du patient
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondaire"
+            onClick={() => {
+              setPatientSelectionne(null);
+              setVue("patients");
+            }}
+          >
+            Patients
+          </button>
           <button type="button" className="secondaire" onClick={() => setVue("historique")}>
             Historique
           </button>
@@ -356,6 +496,14 @@ export default function ConsultationApp() {
             <label>
               Date de consultation
               <input type="date" value={patient.date} onChange={(e) => setPatient({ ...patient, date: e.target.value })} />
+            </label>
+            <label>
+              Sexe
+              <select value={patient.sexe || ""} onChange={(e) => setPatient({ ...patient, sexe: e.target.value })}>
+                <option value="">—</option>
+                <option value="F">Féminin</option>
+                <option value="M">Masculin</option>
+              </select>
             </label>
           </div>
           <p className="cr-aide">Le nom et le prénom restent sur cet appareil : ils sont remplacés par « [patient] » avant l'envoi.</p>
@@ -454,7 +602,7 @@ export default function ConsultationApp() {
                 >
                   {sauvegarde.enCours ? "Enregistrement…" : "Enregistrer dans l'historique"}
                 </button>
-                <button type="button" className="principal" onClick={imprimer}>
+                <button type="button" className="principal" onClick={() => imprimer()}>
                   Imprimer / PDF
                 </button>
               </div>
@@ -522,6 +670,22 @@ export default function ConsultationApp() {
               ))}
             </div>
 
+            <div className="cr-champs-ligne cr-bloc">
+              {[
+                ["agenesies", "Agénésies (schéma dentaire)"],
+                ["a_extraire", "Dents à extraire (schéma dentaire)"],
+                ["incluses", "Dents incluses (schéma dentaire)"],
+              ].map(([cle, libelle]) => (
+                <ChampDents
+                  key={cle}
+                  libelle={libelle}
+                  dents={rapport.dents[cle]}
+                  onChange={(liste) => setRapport((r) => ({ ...r, dents: { ...r.dents, [cle]: liste } }))}
+                />
+              ))}
+            </div>
+            <p className="cr-aide">Reportées sur le schéma dentaire du patient à l'enregistrement dans l'historique.</p>
+
             <h3>3. Plan de traitement</h3>
             <label className="cr-bloc">
               Explication au patient
@@ -550,11 +714,30 @@ export default function ConsultationApp() {
                 </label>
               ))}
             </fieldset>
+
+            <h3>4. Courriers aux confrères</h3>
+            <CourriersEdition
+              courriers={rapport.courriers}
+              onChange={(courriers) => setRapport({ ...rapport, courriers })}
+              onImprimer={imprimer}
+            />
           </section>
         )}
       </main>
 
-      {rapport && <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />}
+      {rapport && (
+        <div className={courrierImprime === null ? undefined : "no-print"}>
+          <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />
+        </div>
+      )}
+      {rapport?.courriers[courrierImprime] && (
+        <CourrierDocument
+          courrier={rapport.courriers[courrierImprime]}
+          patient={patient}
+          cabinet={cabinet}
+          resume={resumeClinique(rapport, appareilsAffiches)}
+        />
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ const PAGES = {
   accueil: `${ORIGINE}/accueil.html`,
   segmentation: `${ORIGINE}/index.html`,
   consultation: `${ORIGINE}/consultation.html`,
+  patients: `${ORIGINE}/consultation.html#patients`,
 };
 
 let fenetre = null;
@@ -63,6 +64,7 @@ function creerMenu() {
           { label: "Accueil", accelerator: "CmdOrCtrl+1", click: () => aller("accueil") },
           { label: "Segmentation 3D", accelerator: "CmdOrCtrl+2", click: () => aller("segmentation") },
           { label: "Compte rendu de consultation", accelerator: "CmdOrCtrl+3", click: () => aller("consultation") },
+          { label: "Patients", accelerator: "CmdOrCtrl+4", click: () => aller("patients") },
         ],
       },
       { role: "viewMenu" },

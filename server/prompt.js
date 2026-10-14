@@ -26,16 +26,35 @@ Rédaction par champ :
 - plan_traitement.appareils : les id du catalogue correspondant aux appareils proposés, dans l'ordre chronologique du traitement. N'utilise que des id du catalogue fourni.
 - plan_traitement.appareils_hors_catalogue : appareils proposés qui ne figurent pas dans le catalogue.
 - plan_traitement.duree_estimee : seulement si une durée a été annoncée.
+- dents : dents citées dans la consultation, en numérotation FDI (« 12 », « 55 »…), reportées sur le schéma dentaire du patient. Uniquement les dents explicitement nommées par l'orthodontiste ; sinon tableaux vides.
+  - agenesies : dents absentes par agénésie.
+  - a_extraire : dents dont l'extraction est demandée ou prévue (dents temporaires, prémolaires, dents de sagesse…).
+  - incluses : dents incluses.
+- courriers : lettres d'adressage à des confrères, uniquement pour les situations évoquées pendant la consultation (sinon tableau vide). Un seul courrier par destinataire.
+  - "dentiste" : soins à réaliser avant le traitement (caries, contrôle, détartrage) ou extractions à prévoir (dents de lait, prémolaires, dents incluses, dents de sagesse).
+  - "orthophoniste" : déglutition atypique ou dysfonctionnelle, langue mal positionnée (en avant, entre les dents, basse, pas au palais), interposition linguale, troubles de l'articulation liés.
+  - "parodontiste" : parodontite, gencives inflammatoires ou qui saignent, récessions, perte d'attache, mobilités, bilan parodontal avant traitement.
+  - "orl" : ventilation buccale au lieu de nasale, obstruction nasale, végétations ou amygdales volumineuses, ronflements, pauses respiratoires, suspicion d'apnées du sommeil (SAHOS), fatigue ou somnolence associées.
+  Pour chaque courrier :
+  - motif : objet court (ex. « Soins dentaires avant traitement orthodontique », « Suspicion de troubles respiratoires du sommeil »).
+  - corps pour "orthophoniste" : c'est une ordonnance, pas une lettre. Uniquement les lignes de prescription, sur le modèle : « Bilan orthophonique +\n12 séances de rééducation de la déglutition ». Utilise le nombre de séances s'il est dicté (sinon 12) et précise la rééducation si elle a été évoquée (posture linguale, ventilation nasale…). Pas de nom de patient, pas de phrase.
+  - corps pour les autres destinataires : le texte de la lettre, de confrère à confrère, ton professionnel et courtois, termes cliniques exacts, 2 à 4 courts paragraphes séparés par une ligne vide. Désigne le patient uniquement par « [patient] » et n'utilise aucun pronom ni accord genré pour lui ni pour l'orthodontiste : écris les accords sous la forme inclusive « vu(e) », « suivi(e) », « âgé(e) », « reconnaissant(e) », « informé(e) » (ils sont accordés automatiquement selon le sexe du patient et du praticien), et reformule pour éviter « il » / « elle » (ex. « [patient] présente… », « on note… ») (ex. « Je vous adresse [patient], que j'ai vu(e) en première consultation d'orthodontie. »). Indique les constats cliniques qui motivent l'adressage, la demande précise (dents concernées en numérotation FDI, soins ou extractions demandés, bilan, rééducation, avis, examen du sommeil…) et le lien avec le traitement orthodontique (à réaliser avant la pose de l'appareil, en parallèle…). Ne recopie pas tout le diagnostic orthodontique ni le plan de traitement : un résumé en tirets est ajouté automatiquement sous la lettre ; limite-toi aux constats qui motivent l'adressage. N'écris ni formule d'appel (« Cher confrère ») ni formule de politesse finale ni signature : elles sont ajoutées automatiquement. N'invente aucun constat qui n'a pas été dit.
 - points_a_verifier : courtes notes destinées à l'orthodontiste uniquement (non imprimées) : éléments ambigus, termes mal reconnus, informations manquantes importantes.`;
 
 const champTexte = { type: "string" };
+
+// Dents permanentes (11 à 48) et temporaires (51 à 85) en numérotation FDI.
+const DENTS_FDI = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((q) =>
+  Array.from({ length: q <= 4 ? 8 : 5 }, (_, i) => `${q}${i + 1}`),
+);
+const listeDents = { type: "array", items: { type: "string", enum: DENTS_FDI } };
 
 export function buildReportSchema(appareilIds) {
   const appareilItems = appareilIds.length ? { type: "string", enum: appareilIds } : { type: "string" };
   return {
     type: "object",
     additionalProperties: false,
-    required: ["motif", "diagnostic", "plan_traitement", "points_a_verifier"],
+    required: ["motif", "diagnostic", "plan_traitement", "dents", "courriers", "points_a_verifier"],
     properties: {
       motif: champTexte,
       diagnostic: {
@@ -73,6 +92,29 @@ export function buildReportSchema(appareilIds) {
           appareils: { type: "array", items: appareilItems },
           appareils_hors_catalogue: { type: "array", items: champTexte },
           duree_estimee: champTexte,
+        },
+      },
+      dents: {
+        type: "object",
+        additionalProperties: false,
+        required: ["agenesies", "a_extraire", "incluses"],
+        properties: {
+          agenesies: listeDents,
+          a_extraire: listeDents,
+          incluses: listeDents,
+        },
+      },
+      courriers: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["destinataire", "motif", "corps"],
+          properties: {
+            destinataire: { type: "string", enum: ["dentiste", "orthophoniste", "parodontiste", "orl"] },
+            motif: champTexte,
+            corps: champTexte,
+          },
         },
       },
       points_a_verifier: { type: "array", items: champTexte },

@@ -21,7 +21,7 @@ L'application est installée dans **Applications** et s'ouvre. La clé API se sa
 **Compte rendu → Appareils & cabinet → Clé API Anthropic** ; elle est vérifiée puis
 enregistrée sur l'ordinateur (`~/.orthoai/config.json`, lisible par vous seul).
 
-Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu.
+Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu · ⌘4 patients.
 
 ## Application Windows OrthoAI (recommandé)
 
@@ -32,7 +32,40 @@ Double-cliquer sur **`creer-application.cmd`** : l'application est fabriquée (1
 installée, et une icône **OrthoAI** est ajoutée sur le Bureau et dans le menu Démarrer.
 La clé API se saisit dans l'application, comme sur Mac (`%USERPROFILE%\.orthoai\config.json`).
 
-Raccourcis : Ctrl+1 accueil · Ctrl+2 segmentation · Ctrl+3 compte rendu.
+Raccourcis : Ctrl+1 accueil · Ctrl+2 segmentation · Ctrl+3 compte rendu · Ctrl+4 patients.
+
+## Dossiers patients
+
+Le bouton **Patients** (ou ⌘4) ouvre les dossiers : recherche, filtres par type de traitement, statuts en couleur.
+Chaque dossier regroupe l'identité, le diagnostic, le plan de traitement, les comptes rendus de consultation,
+le **suivi des séances** (« ce que j'ai fait aujourd'hui / ce que je ferai la prochaine fois »), les commentaires,
+les **photos et radios**. Les modifications s'enregistrent automatiquement.
+
+- Enregistrer un compte rendu le range dans le dossier du patient (même nom, prénom et date de naissance),
+  ou crée le dossier, avec le diagnostic et le plan pré-remplis.
+- **Nouvelle consultation** depuis un dossier démarre une consultation déjà rattachée au patient.
+- Types de traitement et statuts se personnalisent dans **Types & statuts**.
+- Tout est dans le même coffre chiffré que l'historique, avec le même mot de passe, photos et radios comprises,
+  et reste sur cet ordinateur.
+
+## Courriers aux confrères
+
+Quand la consultation évoque un adressage, le compte rendu propose le courrier correspondant
+(rubrique **4. Courriers aux confrères**), rédigé de confrère à confrère :
+
+- **Chirurgien-dentiste** : soins à réaliser avant le traitement, extractions à prévoir ;
+- **Orthophoniste** : déglutition atypique, langue mal positionnée (pas au palais). C'est une
+  **ordonnance** (« Bilan orthophonique + 12 séances de rééducation de la déglutition ») et non une lettre ;
+- **Parodontiste** : parodontite, problème de gencives ;
+- **ORL** : ventilation buccale, ronflements, pauses respiratoires, suspicion d'apnées du sommeil.
+
+Courriers et ordonnances sont imprimés sur le papier à en-tête du cabinet : logo, coordonnées, n° ADELI/RPPS,
+ville et date, âge du patient, signature et pied de page, à renseigner une fois dans **Appareils & cabinet**.
+Les lettres se terminent par un résumé en tirets du diagnostic et du plan de traitement, repris du
+compte rendu corrigé (case à décocher pour le retirer). Chaque courrier est modifiable et s'imprime seul (**Imprimer ce courrier**). Le nom et l'adresse du
+destinataire se saisissent dans l'application et ne sont jamais envoyés. Un courrier non proposé
+s'ajoute avec les boutons **+ Dentiste**, **+ Orthophoniste**… Les courriers sont enregistrés dans
+l'historique avec le compte rendu.
 
 ## Historique des comptes rendus
 

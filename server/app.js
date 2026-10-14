@@ -4,6 +4,7 @@
 //   (JSON) généré par Claude. La clé API reste sur l'ordinateur.
 // - /api/cle : enregistre la clé API saisie dans l'application.
 // - /api/historique/... : historique chiffré des comptes rendus (sur cet ordinateur).
+// - /api/patients/... : dossiers patients, photos et radios, dans le même coffre chiffré.
 // - sert aussi l'interface compilée (dist/) quand elle tourne dans l'application.
 import http from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
@@ -18,6 +19,8 @@ import { ErreurHistorique, creerHistorique } from "./historique.js";
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-5-5";
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const TYPES_IMAGES = ["image/jpeg", "image/png", "image/webp"];
 
 const TYPES_MIME = {
   ".html": "text/html; charset=utf-8",
@@ -84,7 +87,7 @@ function hoteAutorise(req) {
   return hote === "localhost" || hote === "127.0.0.1";
 }
 
-async function routeHistorique(historique, req, url) {
+async function routeHistorique(historique, req, _res, url) {
   const methode = req.method;
   const corps = methode === "POST" ? await readJsonBody(req) : {};
   if (methode === "GET" && url === "/api/historique/etat") return historique.etat();
@@ -103,6 +106,34 @@ async function routeHistorique(historique, req, url) {
   if (methode === "POST" && url === "/api/historique/supprimer") return historique.supprimer(corps.id);
   const fiche = url.match(/^\/api\/historique\/fiche\/([\w-]+)$/);
   if (methode === "GET" && fiche) return { fiche: historique.lire(fiche[1]) };
+  throw new ErreurHistorique(404, "Route inconnue");
+}
+
+async function routePatients(historique, req, res, url) {
+  const methode = req.method;
+  const parametres = new URL(req.url, "http://local").searchParams;
+  if (methode === "GET" && url === "/api/patients") return historique.patients();
+  const dossier = url.match(/^\/api\/patients\/dossier\/([\w-]+)$/);
+  if (methode === "GET" && dossier) return historique.patient(dossier[1]);
+  const media = url.match(/^\/api\/patients\/media\/([\w-]+)$/);
+  if (methode === "GET" && media) {
+    const { type, octets } = historique.lireMedia(media[1]);
+    res.writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" });
+    res.end(octets);
+    return undefined;
+  }
+  // Image envoyée telle quelle (corps binaire), chiffrée à l'enregistrement.
+  if (methode === "POST" && url === "/api/patients/media") {
+    const type = (req.headers["content-type"] || "").split(";")[0];
+    if (!TYPES_IMAGES.includes(type)) throw new ErreurHistorique(415, "Format d'image non pris en charge (JPG, PNG ou WebP).");
+    const octets = await readBody(req, MAX_IMAGE_BYTES);
+    return { media: historique.ajouterMedia(parametres.get("patient"), parametres.get("nom"), type, octets) };
+  }
+  const corps = methode === "POST" ? await readJsonBody(req) : {};
+  if (methode === "POST" && url === "/api/patients/enregistrer") return { patient: historique.enregistrerPatient(corps.patient) };
+  if (methode === "POST" && url === "/api/patients/supprimer") return historique.supprimerPatient(corps.id);
+  if (methode === "POST" && url === "/api/patients/reglages") return { reglages: historique.enregistrerReglages(corps.reglages) };
+  if (methode === "POST" && url === "/api/patients/media/supprimer") return historique.supprimerMedia(corps.patient, corps.id);
   throw new ErreurHistorique(404, "Route inconnue");
 }
 
@@ -182,14 +213,18 @@ export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, f
     if (url.startsWith("/api/") && !hoteAutorise(req)) {
       return sendJson(res, 403, { error: "Hôte non autorisé." });
     }
-    const sensible = req.method === "POST" || url.startsWith("/api/historique");
+    const coffre = url.startsWith("/api/historique") || url.startsWith("/api/patients");
+    const sensible = req.method === "POST" || coffre;
     if (sensible && !origineAutorisee(req)) {
       return sendJson(res, 403, { error: "Origine non autorisée." });
     }
 
-    if (url.startsWith("/api/historique")) {
+    if (coffre) {
       try {
-        return sendJson(res, 200, (await routeHistorique(historique, req, url)) || { ok: true });
+        const route = url.startsWith("/api/patients") ? routePatients : routeHistorique;
+        const resultat = await route(historique, req, res, url);
+        if (res.headersSent) return undefined;
+        return sendJson(res, 200, resultat || { ok: true });
       } catch (err) {
         if (!(err instanceof ErreurHistorique) && err.message !== "JSON invalide") console.error(err);
         return sendJson(res, err.statut || 400, { error: err.message });

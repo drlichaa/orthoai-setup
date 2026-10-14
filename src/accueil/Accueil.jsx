@@ -1,5 +1,11 @@
 const MODULES = [
   {
+    href: "/consultation.html#patients",
+    icone: "🗂️",
+    titre: "Patients",
+    texte: "Dossiers patients : diagnostic, plan de traitement, suivi des séances, photos et radios.",
+  },
+  {
     href: "/consultation.html",
     icone: "🎙️",
     titre: "Compte rendu de consultation",
@@ -34,7 +40,7 @@ export default function Accueil() {
           </a>
         ))}
       </div>
-      <p className="ac-aide">Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu</p>
+      <p className="ac-aide">Raccourcis : ⌘1 accueil · ⌘2 segmentation · ⌘3 compte rendu · ⌘4 patients</p>
     </main>
   );
 }
