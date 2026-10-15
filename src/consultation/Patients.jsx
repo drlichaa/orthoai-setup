@@ -255,7 +255,7 @@ export default function Patients({
 
   if (patientId) {
     return (
-      <div className="cr-app">
+      <div className="cr-app cr-app-large">
         <FichePatient
           patientId={patientId}
           onRetour={() => onSelection(null)}

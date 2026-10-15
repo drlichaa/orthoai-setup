@@ -149,6 +149,78 @@ function libelleDepuis(date) {
   return duree === "aujourd'hui" ? "Posé aujourd'hui" : `Depuis ${duree}`;
 }
 
+// Ancienneté d'une image : « < 1 mois », « 3 mois », « 1 an et 2 mois ».
+function anciennete(date) {
+  if (!date) return "";
+  const jours = (Date.now() - new Date(`${date}T12:00:00`)) / 86400000;
+  return jours < 31 ? "< 1 mois" : depuis(date);
+}
+
+// Colonne de droite de la fiche clinique : dernières photos (série la plus
+// récente) et dernières radios, avec leur ancienneté.
+function PhotosLaterales({ patient, scenarios, onOuvrir, onAjouter }) {
+  const recentes = (genre) =>
+    patient.series
+      .filter((s) => scenarios.find((x) => x.id === s.scenario)?.genre === genre)
+      .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  const photos = recentes("photos")[0];
+  const scenarioPhotos = photos
+    ? scenarios.find((x) => x.id === photos.scenario)
+    : scenarios.find((x) => x.genre === "photos");
+  const scenarioRadios = scenarios.find((x) => x.genre === "radios");
+  const cases = [
+    ...(scenarioPhotos?.elements || []).map((e) => ({
+      cle: e.cle,
+      nom: e.nom,
+      valeur: photos?.elements[e.cle] && { ...photos.elements[e.cle], date: photos.date },
+    })),
+    // Pour chaque radio, la plus récente parmi les séries de radios.
+    ...(scenarioRadios?.elements || []).map((e) => {
+      const serie = recentes("radios").find((s) => s.elements[e.cle]);
+      return {
+        cle: e.cle,
+        nom: e.nom,
+        valeur: serie && { ...serie.elements[e.cle], date: serie.elements[e.cle].date || serie.date },
+      };
+    }),
+  ];
+  return (
+    <aside className="cr-photos-laterales" aria-label="Photos et radios">
+      <div className="cr-photos-laterales-titre">
+        <strong>{photos ? photos.nom : "Photos"}</strong>
+        {photos && <span>{formaterDate(photos.date)}</span>}
+      </div>
+      <div className="cr-photos-grille">
+        {cases.map(({ cle, nom, valeur }) =>
+          valeur ? (
+            <button
+              key={cle}
+              type="button"
+              className="cr-photo-laterale"
+              onClick={() => onOuvrir({ media: valeur.media, titre: nom, date: valeur.date })}
+            >
+              <img src={`/api/patients/media/${valeur.media}`} alt={nom} loading="lazy" />
+              <span className="cr-photo-badge">{anciennete(valeur.date)}</span>
+              <span className="cr-photo-nom">{nom}</span>
+            </button>
+          ) : (
+            <button
+              key={cle}
+              type="button"
+              className="cr-photo-laterale vide"
+              onClick={onAjouter}
+              title="Ajouter dans Photos & radios"
+            >
+              <span className="cr-photo-plus">+</span>
+              <span className="cr-photo-nom">{nom}</span>
+            </button>
+          ),
+        )}
+      </div>
+    </aside>
+  );
+}
+
 function aujourdhui() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -179,6 +251,8 @@ export default function FichePatient({
   const [erreur, setErreur] = useState("");
   const [envoiImages, setEnvoiImages] = useState(0);
   const [imageOuverte, setImageOuverte] = useState(null);
+  // Photo ou radio agrandie depuis la colonne de la fiche clinique.
+  const [apercu, setApercu] = useState(null);
   const [onglet, setOnglet] = useState("clinique");
   // Courrier du dossier en cours d'impression (index).
   const [courrierImprime, setCourrierImprime] = useState(null);
@@ -427,299 +501,311 @@ export default function FichePatient({
         </nav>
 
         {onglet === "clinique" && (
-          <>
-            <section className="cr-carte">
-              <h2>Traitement en cours</h2>
-              <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>
-              <div className="cr-arcs cr-bloc">
-                {ARCS.map(([cle, libelle, liste, exemple]) => (
-                  <div key={cle} className="cr-arc">
-                    <label>
-                      {libelle}
-                      <input
-                        list={liste}
-                        value={patient[cle].fil}
-                        placeholder={exemple}
-                        onChange={(e) =>
-                          maj({
-                            // Nouveau fil : posé aujourd'hui (modifiable) et noté dans la séance du jour.
-                            [cle]: { fil: e.target.value, depuis: aujourdhui() },
-                            seances: noterArc(dernier.current.seances, cle, e.target.value),
-                          })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Posé le
-                      <input
-                        type="date"
-                        value={patient[cle].depuis}
-                        onChange={(e) => maj({ [cle]: { ...patient[cle], depuis: e.target.value } })}
-                      />
-                    </label>
-                    <span className="cr-arc-depuis">{patient[cle].fil && libelleDepuis(patient[cle].depuis)}</span>
-                  </div>
-                ))}
-                <datalist id="cr-fils">
-                  {FILS.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-                <datalist id="cr-elastiques">
-                  {ELASTIQUES.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-                <datalist id="cr-tractions">
-                  {TRACTIONS.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
-              </div>
-            </section>
-
-            <section className="cr-carte">
-              <div className="cr-titre-section">
-                <h2>Schéma dentaire</h2>
-                <span className="cr-aide">Clic ou clic droit sur une dent</span>
-              </div>
-              <SchemaDentaire
-                dents={patient.dents}
-                temporaires={patient.dentsTemporaires}
-                recollagesDuJour={patient.seances.findLast((x) => x.date === dateCourte())?.recollages || []}
-                onChange={(dents) => {
-                  const avant = dentsAvecEtat(dernier.current.dents, "aExtraire");
-                  const apres = dentsAvecEtat(dents, "aExtraire");
-                  const extractions =
-                    avant.join() === apres.join()
-                      ? {}
-                      : {
-                          // Noté dans la séance du jour, et courrier au dentiste préparé.
-                          seances: noterLigne(dernier.current.seances, "À extraire : ", apres.join(", ")),
-                          courriers: majCourrierExtractions(dernier.current.courriers, avant, apres),
-                        };
-                  maj(
-                    {
-                      dents,
-                      // Champs texte tenus à jour pour les courriers et l'export.
-                      agenesies: dentsAvecEtat(dents, "agenesie").join(", "),
-                      dentsAExtraire: apres.join(", "),
-                      ...extractions,
-                    },
-                    { immediat: true },
-                  );
-                }}
-                onRecollage={(dent) =>
-                  maj({ seances: basculerRecollage(dernier.current.seances, dent) }, { immediat: true })
-                }
-                onTemporaires={(dentsTemporaires) => maj({ dentsTemporaires }, { immediat: true })}
-              />
-              <dl className="cr-resume-dents">
-                <dt>Agénésies</dt>
-                <dd>{dentsAvecEtat(patient.dents, "agenesie").join(", ") || patient.agenesies || "—"}</dd>
-                <dt>Dents à extraire</dt>
-                <dd>{dentsAvecEtat(patient.dents, "aExtraire").join(", ") || patient.dentsAExtraire || "—"}</dd>
-                <dt>Extraites</dt>
-                <dd>{dentsAvecEtat(patient.dents, "extraite").join(", ") || "—"}</dd>
-                <dt>Incluses</dt>
-                <dd>{dentsAvecEtat(patient.dents, "incluse").join(", ") || "—"}</dd>
-              </dl>
-            </section>
-
-            <div className="cr-grille cr-grille-fiche">
+          <div className="cr-fiche-clinique">
+            <div className="cr-fiche-clinique-principal">
               <section className="cr-carte">
-                <h2>Alerte</h2>
-                <textarea
-                  rows={3}
-                  value={patient.alerte}
-                  placeholder="Affichée en rouge en haut du dossier (allergie, précaution…)"
-                  onChange={(e) => maj({ alerte: e.target.value })}
-                />
-              </section>
-              <section className="cr-carte">
-                <h2>Pense-bête</h2>
-                <textarea rows={3} value={patient.penseBete} onChange={(e) => maj({ penseBete: e.target.value })} />
-              </section>
-            </div>
-            <div className="cr-grille cr-grille-fiche">
-              <section className="cr-carte">
-                <h2>Diagnostic</h2>
-                <textarea
-                  rows={7}
-                  value={patient.diagnostic}
-                  placeholder="Diagnostic orthodontique…"
-                  onChange={(e) => maj({ diagnostic: e.target.value })}
-                />
-              </section>
-              <section className="cr-carte">
-                <h2>Plan de traitement</h2>
-                <textarea
-                  rows={7}
-                  value={patient.plan}
-                  placeholder="Plan de traitement…"
-                  onChange={(e) => maj({ plan: e.target.value })}
-                />
-              </section>
-            </div>
-            <section className="cr-carte">
-              <h2>Comptes rendus de consultation</h2>
-              {comptesRendus.length === 0 ? (
-                <p className="cr-aide">Aucun compte rendu. « Nouvelle consultation » en démarre un pour ce patient.</p>
-              ) : (
-                <ul className="cr-historique">
-                  {[...comptesRendus]
-                    .sort((a, b) => (b.patient?.date || "").localeCompare(a.patient?.date || ""))
-                    .map((f) => (
-                      <li key={f.id}>
-                        <button type="button" className="cr-fiche" onClick={() => onOuvrirCompteRendu(f.id)}>
-                          <span className="cr-fiche-date">{formaterDate(f.patient?.date)}</span>
-                          <span className="cr-fiche-nom">Compte rendu de consultation</span>
-                          <span className="cr-fiche-motif">{f.motif}</span>
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </section>
-            <section className="cr-carte">
-              <div className="cr-titre-section">
-                <h2>Suivi du traitement</h2>
-                <button
-                  type="button"
-                  className="secondaire"
-                  onClick={() =>
-                    maj({ seances: [...patient.seances, { date: dateCourte(), fait: "", prochaine: "" }] })
-                  }
-                >
-                  + Ajouter une séance
-                </button>
-              </div>
-              {patient.seances.length === 0 ? (
-                <p className="cr-aide">Aucune séance enregistrée.</p>
-              ) : (
-                <div className="cr-tableau-defilant">
-                  <table className="cr-seances">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Ce que j'ai fait aujourd'hui</th>
-                        <th>Ce que je ferai la prochaine fois</th>
-                        <th aria-label="Actions" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {patient.seances
-                        .map((s, i) => ({ s, i }))
-                        .reverse()
-                        .map(({ s, i }) => (
-                          <tr key={i}>
-                            <td>
-                              <input
-                                value={s.date}
-                                aria-label="Date"
-                                onChange={(e) => majLigne("seances", i, "date", e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              {s.recollages?.length > 0 && (
-                                <p className="cr-suivi-rouge">Recollage : {s.recollages.join(", ")}</p>
-                              )}
-                              <textarea
-                                rows={2}
-                                value={s.fait}
-                                aria-label="Ce que j'ai fait aujourd'hui"
-                                onChange={(e) => majLigne("seances", i, "fait", e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <textarea
-                                rows={2}
-                                value={s.prochaine}
-                                aria-label="Ce que je ferai la prochaine fois"
-                                onChange={(e) => majLigne("seances", i, "prochaine", e.target.value)}
-                              />
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="danger"
-                                aria-label="Supprimer la séance"
-                                onClick={() => supprimerLigne("seances", i, "Supprimer cette séance ?")}
-                              >
-                                ×
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-            <section className="cr-carte">
-              <h2>Courriers</h2>
-              <CourriersEdition
-                courriers={patient.courriers}
-                onChange={(courriers) => maj({ courriers: courriers.map((c) => ({ date: aujourdhui(), ...c })) })}
-                onImprimer={imprimerCourrier}
-                medias={images}
-                onJoindreImage={async (index, fichier) => {
-                  // L'image annotée est rangée avec les autres, chiffrée, sans ligne de suivi.
-                  const media = await envoyerImage(patientId, fichier);
-                  definir({ ...dernier.current, medias: [...dernier.current.medias, media] });
-                  maj(
-                    {
-                      courriers: dernier.current.courriers.map((c, i) => (i === index ? { ...c, image: media.id } : c)),
-                    },
-                    { immediat: true },
-                  );
-                }}
-                vide="Aucun courrier. Marquer une dent « À extraire » sur le schéma prépare le courrier au dentiste."
-                dater
-              />
-            </section>
-
-            <section className="cr-carte">
-              <div className="cr-titre-section">
-                <h2>Commentaires</h2>
-                <button
-                  type="button"
-                  className="secondaire"
-                  onClick={() => maj({ commentaires: [...patient.commentaires, { date: dateCourte(), texte: "" }] })}
-                >
-                  + Ajouter
-                </button>
-              </div>
-              {patient.commentaires.length === 0 ? (
-                <p className="cr-aide">Aucun commentaire.</p>
-              ) : (
-                patient.commentaires
-                  .map((c, i) => ({ c, i }))
-                  .reverse()
-                  .map(({ c, i }) => (
-                    <div key={i} className="cr-commentaire">
-                      <div className="cr-titre-section">
-                        <span className="cr-aide">{c.date}</span>
-                        <button
-                          type="button"
-                          className="danger"
-                          aria-label="Supprimer le commentaire"
-                          onClick={() => supprimerLigne("commentaires", i, "Supprimer ce commentaire ?")}
-                        >
-                          ×
-                        </button>
-                      </div>
-                      <textarea
-                        rows={2}
-                        value={c.texte}
-                        aria-label="Commentaire"
-                        onChange={(e) => majLigne("commentaires", i, "texte", e.target.value)}
-                      />
+                <h2>Traitement en cours</h2>
+                <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>
+                <div className="cr-arcs cr-bloc">
+                  {ARCS.map(([cle, libelle, liste, exemple]) => (
+                    <div key={cle} className="cr-arc">
+                      <label>
+                        {libelle}
+                        <input
+                          list={liste}
+                          value={patient[cle].fil}
+                          placeholder={exemple}
+                          onChange={(e) =>
+                            maj({
+                              // Nouveau fil : posé aujourd'hui (modifiable) et noté dans la séance du jour.
+                              [cle]: { fil: e.target.value, depuis: aujourdhui() },
+                              seances: noterArc(dernier.current.seances, cle, e.target.value),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Posé le
+                        <input
+                          type="date"
+                          value={patient[cle].depuis}
+                          onChange={(e) => maj({ [cle]: { ...patient[cle], depuis: e.target.value } })}
+                        />
+                      </label>
+                      <span className="cr-arc-depuis">{patient[cle].fil && libelleDepuis(patient[cle].depuis)}</span>
                     </div>
-                  ))
-              )}
-            </section>
-          </>
+                  ))}
+                  <datalist id="cr-fils">
+                    {FILS.map((f) => (
+                      <option key={f} value={f} />
+                    ))}
+                  </datalist>
+                  <datalist id="cr-elastiques">
+                    {ELASTIQUES.map((f) => (
+                      <option key={f} value={f} />
+                    ))}
+                  </datalist>
+                  <datalist id="cr-tractions">
+                    {TRACTIONS.map((f) => (
+                      <option key={f} value={f} />
+                    ))}
+                  </datalist>
+                </div>
+              </section>
+
+              <section className="cr-carte">
+                <div className="cr-titre-section">
+                  <h2>Schéma dentaire</h2>
+                  <span className="cr-aide">Clic ou clic droit sur une dent</span>
+                </div>
+                <SchemaDentaire
+                  dents={patient.dents}
+                  temporaires={patient.dentsTemporaires}
+                  recollagesDuJour={patient.seances.findLast((x) => x.date === dateCourte())?.recollages || []}
+                  onChange={(dents) => {
+                    const avant = dentsAvecEtat(dernier.current.dents, "aExtraire");
+                    const apres = dentsAvecEtat(dents, "aExtraire");
+                    const extractions =
+                      avant.join() === apres.join()
+                        ? {}
+                        : {
+                            // Noté dans la séance du jour, et courrier au dentiste préparé.
+                            seances: noterLigne(dernier.current.seances, "À extraire : ", apres.join(", ")),
+                            courriers: majCourrierExtractions(dernier.current.courriers, avant, apres),
+                          };
+                    maj(
+                      {
+                        dents,
+                        // Champs texte tenus à jour pour les courriers et l'export.
+                        agenesies: dentsAvecEtat(dents, "agenesie").join(", "),
+                        dentsAExtraire: apres.join(", "),
+                        ...extractions,
+                      },
+                      { immediat: true },
+                    );
+                  }}
+                  onRecollage={(dent) =>
+                    maj({ seances: basculerRecollage(dernier.current.seances, dent) }, { immediat: true })
+                  }
+                  onTemporaires={(dentsTemporaires) => maj({ dentsTemporaires }, { immediat: true })}
+                />
+                <dl className="cr-resume-dents">
+                  <dt>Agénésies</dt>
+                  <dd>{dentsAvecEtat(patient.dents, "agenesie").join(", ") || patient.agenesies || "—"}</dd>
+                  <dt>Dents à extraire</dt>
+                  <dd>{dentsAvecEtat(patient.dents, "aExtraire").join(", ") || patient.dentsAExtraire || "—"}</dd>
+                  <dt>Extraites</dt>
+                  <dd>{dentsAvecEtat(patient.dents, "extraite").join(", ") || "—"}</dd>
+                  <dt>Incluses</dt>
+                  <dd>{dentsAvecEtat(patient.dents, "incluse").join(", ") || "—"}</dd>
+                </dl>
+              </section>
+
+              <div className="cr-grille cr-grille-fiche">
+                <section className="cr-carte">
+                  <h2>Alerte</h2>
+                  <textarea
+                    rows={3}
+                    value={patient.alerte}
+                    placeholder="Affichée en rouge en haut du dossier (allergie, précaution…)"
+                    onChange={(e) => maj({ alerte: e.target.value })}
+                  />
+                </section>
+                <section className="cr-carte">
+                  <h2>Pense-bête</h2>
+                  <textarea rows={3} value={patient.penseBete} onChange={(e) => maj({ penseBete: e.target.value })} />
+                </section>
+              </div>
+              <div className="cr-grille cr-grille-fiche">
+                <section className="cr-carte">
+                  <h2>Diagnostic</h2>
+                  <textarea
+                    rows={7}
+                    value={patient.diagnostic}
+                    placeholder="Diagnostic orthodontique…"
+                    onChange={(e) => maj({ diagnostic: e.target.value })}
+                  />
+                </section>
+                <section className="cr-carte">
+                  <h2>Plan de traitement</h2>
+                  <textarea
+                    rows={7}
+                    value={patient.plan}
+                    placeholder="Plan de traitement…"
+                    onChange={(e) => maj({ plan: e.target.value })}
+                  />
+                </section>
+              </div>
+              <section className="cr-carte">
+                <h2>Comptes rendus de consultation</h2>
+                {comptesRendus.length === 0 ? (
+                  <p className="cr-aide">
+                    Aucun compte rendu. « Nouvelle consultation » en démarre un pour ce patient.
+                  </p>
+                ) : (
+                  <ul className="cr-historique">
+                    {[...comptesRendus]
+                      .sort((a, b) => (b.patient?.date || "").localeCompare(a.patient?.date || ""))
+                      .map((f) => (
+                        <li key={f.id}>
+                          <button type="button" className="cr-fiche" onClick={() => onOuvrirCompteRendu(f.id)}>
+                            <span className="cr-fiche-date">{formaterDate(f.patient?.date)}</span>
+                            <span className="cr-fiche-nom">Compte rendu de consultation</span>
+                            <span className="cr-fiche-motif">{f.motif}</span>
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+              </section>
+              <section className="cr-carte">
+                <div className="cr-titre-section">
+                  <h2>Suivi du traitement</h2>
+                  <button
+                    type="button"
+                    className="secondaire"
+                    onClick={() =>
+                      maj({ seances: [...patient.seances, { date: dateCourte(), fait: "", prochaine: "" }] })
+                    }
+                  >
+                    + Ajouter une séance
+                  </button>
+                </div>
+                {patient.seances.length === 0 ? (
+                  <p className="cr-aide">Aucune séance enregistrée.</p>
+                ) : (
+                  <div className="cr-tableau-defilant">
+                    <table className="cr-seances">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Ce que j'ai fait aujourd'hui</th>
+                          <th>Ce que je ferai la prochaine fois</th>
+                          <th aria-label="Actions" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {patient.seances
+                          .map((s, i) => ({ s, i }))
+                          .reverse()
+                          .map(({ s, i }) => (
+                            <tr key={i}>
+                              <td>
+                                <input
+                                  value={s.date}
+                                  aria-label="Date"
+                                  onChange={(e) => majLigne("seances", i, "date", e.target.value)}
+                                />
+                              </td>
+                              <td>
+                                {s.recollages?.length > 0 && (
+                                  <p className="cr-suivi-rouge">Recollage : {s.recollages.join(", ")}</p>
+                                )}
+                                <textarea
+                                  rows={2}
+                                  value={s.fait}
+                                  aria-label="Ce que j'ai fait aujourd'hui"
+                                  onChange={(e) => majLigne("seances", i, "fait", e.target.value)}
+                                />
+                              </td>
+                              <td>
+                                <textarea
+                                  rows={2}
+                                  value={s.prochaine}
+                                  aria-label="Ce que je ferai la prochaine fois"
+                                  onChange={(e) => majLigne("seances", i, "prochaine", e.target.value)}
+                                />
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="danger"
+                                  aria-label="Supprimer la séance"
+                                  onClick={() => supprimerLigne("seances", i, "Supprimer cette séance ?")}
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+              <section className="cr-carte">
+                <h2>Courriers</h2>
+                <CourriersEdition
+                  courriers={patient.courriers}
+                  onChange={(courriers) => maj({ courriers: courriers.map((c) => ({ date: aujourdhui(), ...c })) })}
+                  onImprimer={imprimerCourrier}
+                  medias={images}
+                  onJoindreImage={async (index, fichier) => {
+                    // L'image annotée est rangée avec les autres, chiffrée, sans ligne de suivi.
+                    const media = await envoyerImage(patientId, fichier);
+                    definir({ ...dernier.current, medias: [...dernier.current.medias, media] });
+                    maj(
+                      {
+                        courriers: dernier.current.courriers.map((c, i) =>
+                          i === index ? { ...c, image: media.id } : c,
+                        ),
+                      },
+                      { immediat: true },
+                    );
+                  }}
+                  vide="Aucun courrier. Marquer une dent « À extraire » sur le schéma prépare le courrier au dentiste."
+                  dater
+                />
+              </section>
+
+              <section className="cr-carte">
+                <div className="cr-titre-section">
+                  <h2>Commentaires</h2>
+                  <button
+                    type="button"
+                    className="secondaire"
+                    onClick={() => maj({ commentaires: [...patient.commentaires, { date: dateCourte(), texte: "" }] })}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+                {patient.commentaires.length === 0 ? (
+                  <p className="cr-aide">Aucun commentaire.</p>
+                ) : (
+                  patient.commentaires
+                    .map((c, i) => ({ c, i }))
+                    .reverse()
+                    .map(({ c, i }) => (
+                      <div key={i} className="cr-commentaire">
+                        <div className="cr-titre-section">
+                          <span className="cr-aide">{c.date}</span>
+                          <button
+                            type="button"
+                            className="danger"
+                            aria-label="Supprimer le commentaire"
+                            onClick={() => supprimerLigne("commentaires", i, "Supprimer ce commentaire ?")}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={c.texte}
+                          aria-label="Commentaire"
+                          onChange={(e) => majLigne("commentaires", i, "texte", e.target.value)}
+                        />
+                      </div>
+                    ))
+                )}
+              </section>
+            </div>
+            <PhotosLaterales
+              patient={patient}
+              scenarios={scenarios}
+              onOuvrir={setApercu}
+              onAjouter={() => setOnglet("images")}
+            />
+          </div>
         )}
 
         {onglet === "patient" && (
@@ -910,6 +996,19 @@ export default function FichePatient({
           </div>
         )}
       </div>
+      {apercu && (
+        <div className="cr-visionneuse" role="dialog" aria-label={apercu.titre} onClick={() => setApercu(null)}>
+          <img src={`/api/patients/media/${apercu.media}`} alt={apercu.titre} />
+          <div className="cr-visionneuse-barre">
+            <span>
+              {apercu.titre} · {formaterDate(apercu.date)}
+            </span>
+            <button type="button" className="secondaire" onClick={() => setApercu(null)}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
       {plancheImprimee && (
         <PlancheDocument
           serie={plancheImprimee}
