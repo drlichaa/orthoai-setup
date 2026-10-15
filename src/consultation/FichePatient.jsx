@@ -547,7 +547,7 @@ export default function FichePatient({
                       Devis &amp; semestres →
                     </button>
                   </div>
-                  <FriseTraitement gestion={patient.gestion} />
+                  <FriseTraitement patient={patient} gestion={patient.gestion} />
                 </section>
               )}
               <section className="cr-carte">

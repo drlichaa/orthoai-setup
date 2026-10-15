@@ -116,6 +116,35 @@ function dechiffrerMedia(cle, brut) {
   return dechiffrerOctets(cle, brut.subarray(0, 12), brut.subarray(12, 28), brut.subarray(28));
 }
 
+function ajouterMoisIso(iso, mois) {
+  const [a, m, j] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(a, m - 1 + mois, 1));
+  const dernierJour = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(j, dernierJour));
+  return d.toISOString().slice(0, 10);
+}
+
+// Semestres d'un patient en traitement repris d'OrthoFast (sans devis validé
+// dans OrthoAI) : départ à la date « Début traitement », au moins 6 semestres,
+// montants connus d'après les échéances de règlement. Les semestres déjà
+// commencés sont « à vérifier » : le praticien coche ceux déjà facturés, et ils
+// ne créent pas de tâche automatique.
+export function semestresDepuisOrthofast(brut, aujourdhui = new Date().toISOString().slice(0, 10)) {
+  const debut = brut?.debutTraitement;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(debut || "") || debut > aujourdhui) return null;
+  let commences = 0;
+  while (commences < 40 && ajouterMoisIso(debut, commences * 6) <= aujourdhui) commences++;
+  const connus = (Array.isArray(brut.reglements) ? brut.reglements : [])
+    .map((r) => ({ numero: parseInt(String(r?.semestre ?? "").replace(/\D/g, ""), 10), montant: r?.montant }))
+    .filter((r) => r.numero >= 1 && r.numero <= 20);
+  const nombre = Math.min(20, Math.max(6, commences, ...connus.map((r) => r.numero)));
+  const montants = Array.from({ length: nombre }, () => null);
+  for (const r of connus) if (typeof r.montant === "number") montants[r.numero - 1] = r.montant;
+  const aVerifier = {};
+  for (let i = 1; i <= Math.min(commences, nombre); i++) aVerifier[i] = true;
+  return { debut, nombre, montants, factures: {}, aVerifier, source: "orthofast" };
+}
+
 export class ErreurHistorique extends Error {
   constructor(statut, message) {
     super(message);
@@ -275,6 +304,17 @@ export function creerHistorique(fichier) {
       type: p.type,
       statut: p.statut,
       modifieLe: p.modifieLe,
+      securiteSociale: p.securiteSociale,
+      // Le strict nécessaire pour la frise des semestres de la liste.
+      gestion: p.gestion?.semestres?.debut
+        ? {
+            semestres: p.gestion.semestres,
+            phase: p.gestion.phase,
+            phaseDepuis: p.gestion.phaseDepuis,
+            devis: (p.gestion.devis || []).map((d) => ({ id: d.id, regime: d.regime })),
+            deps: (p.gestion.deps || []).map((d) => ({ semestre: d.semestre, nature: d.nature, numero: d.numero })),
+          }
+        : undefined,
     };
   }
 
@@ -709,6 +749,17 @@ export function creerHistorique(fichier) {
           const typeNonModifie = !patient.type || patient.type === patient.orthofast?.typeImporte;
           if (deduit?.type && typeNonModifie) patient.type = deduit.type;
           if (deduit) Object.assign(orthofast, { statutImporte: deduit.statut, typeImporte: deduit.type });
+          const semestresImportes =
+            patient.statut === "En traitement" && !patient.gestion?.semestres?.debut
+              ? semestresDepuisOrthofast(brut)
+              : null;
+          if (semestresImportes) {
+            patient.gestion = {
+              ...(patient.gestion || {}),
+              semestres: semestresImportes,
+              phase: patient.gestion?.phase || "actif",
+            };
+          }
           patient.code = code;
           patient.lieu = lieu;
           patient.orthofast = orthofast;
@@ -725,6 +776,9 @@ export function creerHistorique(fichier) {
               statut: deduit?.statut || reglages.statuts[0]?.nom || "",
               type: deduit?.type || "",
               orthofast,
+              ...(deduit?.statut === "En traitement" && semestresDepuisOrthofast(brut)
+                ? { gestion: { semestres: semestresDepuisOrthofast(brut), phase: "actif" } }
+                : {}),
             },
             null,
           );

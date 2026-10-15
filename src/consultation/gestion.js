@@ -201,6 +201,9 @@ export function semestres(gestion) {
       facture: s.factures?.[i] || "",
       dep: couverts.has(i) || Boolean(s.depFaites?.[i]),
       depDetail: couverts.get(i) || null,
+      // Semestre passé créé à l'import OrthoFast : facturation et DEP à vérifier
+      // par le praticien (pas de tâche automatique).
+      aVerifier: Boolean(s.aVerifier?.[i]) && !s.factures?.[i],
     });
   }
   return liste;
@@ -246,7 +249,7 @@ export function frise(gestion, auj = aujourdhui()) {
   for (const s of segments) s.remplissage = remplissage(s.debut, s.fin);
   const courant = segments.find((s) => s.debut <= auj && auj < s.fin) || null;
   const finSemestres = liste.at(-1).fin;
-  const aFacturer = liste.filter((s) => s.debut <= auj && !s.facture);
+  const aFacturer = liste.filter((s) => s.debut <= auj && !s.facture && !s.aVerifier);
   return {
     segments,
     nombre: liste.length,
@@ -255,6 +258,18 @@ export function frise(gestion, auj = aujourdhui()) {
     resteAFacturer: aFacturer.reduce((t, s) => t + (Number(s.montant) || 0), 0),
     semestresAFacturer: aFacturer.length,
   };
+}
+
+// Traitement pris en charge par la Sécurité sociale : devis validé « Sécu »,
+// ou, pour les semestres repris d'OrthoFast, patient assuré de moins de
+// l'âge limite (16 ans) au début du traitement.
+export function priseEnChargeSecu(patient, gestion, ageLimite = BAREME_PAR_DEFAUT.ageHorsNomenclature) {
+  const s = gestion?.semestres;
+  if (!s?.debut) return false;
+  const devis = (gestion.devis || []).find((d) => d.id === s.devisId);
+  if (devis) return devis.regime !== "hn";
+  if (patient?.securiteSociale === false || !patient?.naissance) return false;
+  return moisEntre(patient.naissance, s.debut) / 12 < ageLimite;
 }
 
 // Date de la dernière séance (« jj/mm/aaaa » ou ISO), ou du début du traitement.
@@ -274,7 +289,7 @@ export function echeancesPatient(p, auj = aujourdhui()) {
   const actif = !["attente", "contention", "suspension"].includes(g.phase || "actif");
   if (actif) {
     for (const s of semestres(g)) {
-      if (s.debut > auj) continue;
+      if (s.debut > auj || s.aVerifier) continue;
       if (!s.facture)
         ajouter(
           `fact-${s.numero}`,
@@ -285,8 +300,8 @@ export function echeancesPatient(p, auj = aujourdhui()) {
         );
     }
   }
-  if (g.phase !== "suspension") {
-    // DEP : une pour deux semestres, puis une pour la contention ; rappel un mois avant.
+  if (g.phase !== "suspension" && priseEnChargeSecu(p, g)) {
+    // DEP (traitement pris en charge) : une pour deux semestres, puis une pour la contention ; rappel un mois avant.
     const nombre = g.semestres?.nombre || 0;
     const groupes = semestres(g)
       .filter((s) => s.numero % 2 === 1)
@@ -294,7 +309,7 @@ export function echeancesPatient(p, auj = aujourdhui()) {
         cle: s.numero,
         titre: s.numero + 1 <= nombre ? `semestres ${s.numero} et ${s.numero + 1}` : `semestre ${s.numero}`,
         debut: s.debut,
-        dep: s.dep,
+        dep: s.dep || s.aVerifier,
       }));
     const c = anneeContention(g);
     if (c) groupes.push({ cle: "C", titre: "l'année de contention", debut: c.debut, dep: c.dep });

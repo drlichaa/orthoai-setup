@@ -1,7 +1,7 @@
 // Frise du traitement : semestres (une DEP pour deux) puis année de contention,
 // remplie en bleu au fil du temps ; point vert quand la DEP a été imprimée.
 import { formaterDate } from "./format.js";
-import { aujourdhui, dureeLisible, euros, frise, libelleDep } from "./gestion.js";
+import { aujourdhui, dureeLisible, euros, frise, libelleDep, priseEnChargeSecu } from "./gestion.js";
 
 function infoDep(s) {
   if (!s.depDetail) return s.dep ? "DEP faite" : "DEP à faire";
@@ -9,10 +9,11 @@ function infoDep(s) {
   return `${libelleDep(d)} imprimée le ${formaterDate(d.date)}${d.envoyee ? `, envoyée le ${formaterDate(d.envoyee)}` : " (pas encore envoyée)"}`;
 }
 
-export default function FriseTraitement({ gestion, compacte = false }) {
+export default function FriseTraitement({ patient, gestion, compacte = false }) {
   const auj = aujourdhui();
   const f = frise(gestion, auj);
   if (!f) return null;
+  const secu = priseEnChargeSecu(patient, gestion);
   const { courant } = f;
   const enSemestre = courant && !courant.contention;
   const debut = f.segments[0].debut;
@@ -28,17 +29,16 @@ export default function FriseTraitement({ gestion, compacte = false }) {
           return (
             <div
               key={s.cle}
-              className={`oa-frise-seg ${etat}${s.contention ? " contention" : ""}${premierDuGroupe ? " groupe" : ""}`}
-              title={`${s.contention ? "Année de contention" : `Semestre ${s.numero}`} : ${formaterDate(s.debut)} → ${formaterDate(s.fin)}${s.montant != null ? ` · ${euros(s.montant)}` : ""}${s.facture ? ` · facturé le ${formaterDate(s.facture)}` : ""}\n${infoDep(s)}`}
+              className={`oa-frise-seg ${etat}${s.contention ? " contention" : ""}${premierDuGroupe ? " groupe" : ""}${s.aVerifier ? " verifier" : ""}`}
+              title={`${s.contention ? "Année de contention" : `Semestre ${s.numero}`} : ${formaterDate(s.debut)} → ${formaterDate(s.fin)}${s.montant != null ? ` · ${euros(s.montant)}` : ""}${s.facture ? ` · facturé le ${formaterDate(s.facture)}` : s.aVerifier ? " · repris d'OrthoFast, à vérifier" : ""}${secu ? `\n${infoDep(s)}` : ""}`}
             >
               <span className="oa-frise-rempli" style={{ width: `${s.remplissage * 100}%` }} />
               {etat === "courant" && <span className="oa-frise-auj" style={{ left: `${s.remplissage * 100}%` }} />}
               <span className="oa-frise-date">{formaterDate(s.debut)}</span>
               <span className="oa-frise-num">{s.libelle}</span>
-              <span
-                className={`oa-frise-dep ${s.dep ? "faite" : s.debut <= auj ? "due" : ""}`}
-                aria-label={infoDep(s)}
-              />
+              {secu && (s.dep || (s.debut <= auj && !s.aVerifier)) && (
+                <span className={`oa-frise-dep ${s.dep ? "faite" : "due"}`} aria-label={infoDep(s)} />
+              )}
             </div>
           );
         })}
@@ -77,12 +77,19 @@ export default function FriseTraitement({ gestion, compacte = false }) {
       </div>
       {!compacte && (
         <div className="oa-frise-legende">
-          <span>
-            <i className="oa-frise-dep faite" /> DEP imprimée
-          </span>
-          <span>
-            <i className="oa-frise-dep due" /> DEP à faire
-          </span>
+          {secu ? (
+            <>
+              <span>
+                <i className="oa-frise-dep faite" /> DEP imprimée
+              </span>
+              <span>
+                <i className="oa-frise-dep due" /> DEP à faire
+              </span>
+            </>
+          ) : (
+            <span>Hors nomenclature : pas de DEP</span>
+          )}
+          {f.segments.some((s) => s.aVerifier) && <span>Pointillés : semestre repris d'OrthoFast, à vérifier</span>}
           <span>
             <i className="oa-frise-auj-legende" /> Aujourd'hui
           </span>

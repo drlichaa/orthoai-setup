@@ -355,7 +355,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
   );
 }
 
-function Semestres({ g, majGestion }) {
+function Semestres({ patient, g, majGestion }) {
   const liste = semestres(g);
   const auj = aujourdhui();
   return (
@@ -380,7 +380,13 @@ function Semestres({ g, majGestion }) {
         <p className="cr-aide">Les semestres se créent quand un devis est validé (« Signé : démarrer »).</p>
       ) : (
         <>
-          <FriseTraitement gestion={g} />
+          <FriseTraitement patient={patient} gestion={g} />
+          {liste.some((s) => s.aVerifier) && (
+            <p className="cr-aide">
+              Semestres repris d'OrthoFast : cochez « Facturé » pour ceux déjà facturés. Les semestres « à vérifier » ne
+              créent pas de tâche.
+            </p>
+          )}
           <table className="oa-table">
             <thead>
               <tr>
@@ -666,7 +672,7 @@ export default function GestionTraitement({ patient, maj, majGestion, cabinet, d
   return (
     <>
       <Devis {...{ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer }} />
-      <Semestres g={g} majGestion={majGestion} />
+      <Semestres patient={patient} g={g} majGestion={majGestion} />
       <DonneesOrthofast orthofast={patient.orthofast} />
       <Dep {...{ patient, g, majGestion, cabinet, onImprimer }} />
       <Administratif g={g} majGestion={majGestion} patient={patient} />
