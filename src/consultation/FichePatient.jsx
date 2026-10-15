@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import FriseTraitement from "./FriseTraitement.jsx";
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { flushSync } from "react-dom";
 import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
@@ -538,6 +539,17 @@ export default function FichePatient({
         {onglet === "clinique" && (
           <div className="cr-fiche-clinique">
             <div className="cr-fiche-clinique-principal">
+              {patient.gestion?.semestres?.debut && (
+                <section className="cr-carte">
+                  <div className="cr-titre-section">
+                    <h2>Frise du traitement</h2>
+                    <button type="button" className="cr-lien" onClick={() => setOnglet("gestion")}>
+                      Devis &amp; semestres →
+                    </button>
+                  </div>
+                  <FriseTraitement gestion={patient.gestion} />
+                </section>
+              )}
               <section className="cr-carte">
                 <h2>Traitement en cours</h2>
                 <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>

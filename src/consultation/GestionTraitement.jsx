@@ -3,15 +3,19 @@
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { useState } from "react";
 import { DepDocument, DevisDocument } from "./DocumentsGestion.jsx";
+import FriseTraitement from "./FriseTraitement.jsx";
 import { formaterDate } from "./format.js";
 import {
   DEP_DIAGNOSTIC,
   TRAITEMENTS,
+  anneeContention,
   aujourdhui,
   bareme,
   euros,
   identifiantUnique,
+  libelleDep,
   lignesDevis,
+  premierDuGroupe,
   regimeParDefaut,
   semestres,
   totauxDevis,
@@ -251,6 +255,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
             debut: iso,
             nombre: montants.length || devis.semestres,
             montants,
+            contention: devis.lignes.find((l) => /contention/i.test(l.libelle))?.honoraires ?? null,
             devisId: devis.id,
             factures: {},
           },
@@ -375,17 +380,7 @@ function Semestres({ g, majGestion }) {
         <p className="cr-aide">Les semestres se créent quand un devis est validé (« Signé : démarrer »).</p>
       ) : (
         <>
-          <div className="oa-frise">
-            {liste.map((s) => (
-              <div key={s.numero} className={`oa-frise-etape ${s.facture ? "fait" : s.debut <= auj ? "du" : ""}`}>
-                <b>S{s.numero}</b>
-                <small>{formaterDate(s.debut)}</small>
-                <strong>{s.montant != null ? euros(s.montant) : "—"}</strong>
-                <small>{s.facture ? "✓ Facturé" : s.debut <= auj ? "À facturer" : "À venir"}</small>
-                <small>{s.dep ? "DEP ✓" : "DEP à faire"}</small>
-              </div>
-            ))}
-          </div>
+          <FriseTraitement gestion={g} />
           <table className="oa-table">
             <thead>
               <tr>
@@ -393,6 +388,7 @@ function Semestres({ g, majGestion }) {
                 <th>Période</th>
                 <th>Montant</th>
                 <th>Facturé</th>
+                <th>DEP</th>
               </tr>
             </thead>
             <tbody>
@@ -420,9 +416,10 @@ function Semestres({ g, majGestion }) {
                           })
                         }
                       />{" "}
-                      {s.facture ? `le ${formaterDate(s.facture)}` : ""}
+                      {s.facture ? `le ${formaterDate(s.facture)}` : s.debut <= auj ? "à facturer" : ""}
                     </label>
                   </td>
+                  <td>{s.dep ? "✓" : s.debut <= auj ? "à faire" : ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -448,15 +445,18 @@ function Semestres({ g, majGestion }) {
 }
 
 function brouillonDep(patient, g) {
+  // Prochaine DEP : premier groupe de deux semestres non couvert, sinon l'année de contention.
   const liste = semestres(g);
-  const prochain = liste.find((s) => !s.dep) || liste.at(-1);
-  const numero = prochain?.numero || 1;
+  const prochain = liste.find((s) => !s.dep);
+  const contention = !prochain && liste.length > 0 ? anneeContention(g) : null;
+  const numero = prochain ? premierDuGroupe(prochain.numero) : 1;
+  const debutGroupe = liste.find((s) => s.numero === numero)?.debut;
   return {
     date: aujourdhui(),
-    nature: numero > 1 ? "suite" : "debut",
+    nature: contention ? "contention" : numero > 1 ? "suite" : "debut",
     numero: String(numero),
-    debut: prochain?.debut || patient.debut || aujourdhui(),
-    cotation: "TO90",
+    debut: contention?.debut || debutGroupe || patient.debut || aujourdhui(),
+    cotation: contention ? "TO75" : "TO90",
     devisRemis: true,
     secu: g.numeroSecu || "",
     assure: g.assure || "",
@@ -515,9 +515,18 @@ function Dep({ patient, g, majGestion, cabinet, onImprimer }) {
           <div className="cr-champs-ligne">
             <label>
               Nature
-              <select value={dep.nature} onChange={(e) => setDep({ ...dep, nature: e.target.value })}>
-                <option value="debut">Début de traitement</option>
-                <option value="suite">Suite — semestre n°</option>
+              <select
+                value={dep.nature}
+                onChange={(e) =>
+                  setDep({
+                    ...dep,
+                    nature: e.target.value,
+                    cotation: { contention: "TO75", surveillance: "TO10" }[e.target.value] || "TO90",
+                  })
+                }
+              >
+                <option value="debut">Début de traitement (semestres 1 et 2)</option>
+                <option value="suite">Suite — semestres n° (3 = S3-S4, 5 = S5-S6…)</option>
                 <option value="surveillance">Surveillance</option>
                 <option value="contention">Contention — année n°</option>
               </select>
@@ -609,16 +618,7 @@ function Dep({ patient, g, majGestion, cabinet, onImprimer }) {
             {[...g.deps].reverse().map((d) => (
               <tr key={d.id}>
                 <td>{formaterDate(d.date)}</td>
-                <td>
-                  {
-                    {
-                      debut: "Début de traitement",
-                      suite: `Semestre ${d.numero}`,
-                      surveillance: "Surveillance",
-                      contention: `Contention année ${d.numero}`,
-                    }[d.nature]
-                  }
-                </td>
+                <td>{d.nature === "debut" ? "Début de traitement (semestres 1 et 2)" : libelleDep(d)}</td>
                 <td>{formaterDate(d.debut)}</td>
                 <td>
                   <input

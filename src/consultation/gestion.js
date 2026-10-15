@@ -167,10 +167,28 @@ export function totauxDevis(lignes) {
 
 // ----- Semestres (à partir du devis validé) -----
 
+// Une DEP couvre deux semestres (S1-S2, S3-S4, S5-S6…), puis une DEP pour l'année de contention.
+export function premierDuGroupe(numero) {
+  return numero % 2 ? numero : numero - 1;
+}
+
+function couverture(gestion) {
+  const couverts = new Map();
+  for (const d of gestion?.deps || []) {
+    if (d.nature === "contention") couverts.set("C", d);
+    else if (d.nature === "debut" || d.nature === "suite") {
+      const n = premierDuGroupe(Number(d.numero || d.semestre) || 1);
+      couverts.set(n, d).set(n + 1, d);
+    } else if (Number(d.semestre)) couverts.set(Number(d.semestre), d);
+  }
+  return couverts;
+}
+
 export function semestres(gestion) {
   const s = gestion?.semestres;
   if (!s?.debut || !s.nombre) return [];
   const fin = ["contention", "suspension"].includes(gestion.phase) ? gestion.phaseDepuis : "";
+  const couverts = couverture(gestion);
   const liste = [];
   for (let i = 1; i <= s.nombre; i++) {
     const debut = ajouterMois(s.debut, (i - 1) * 6);
@@ -181,10 +199,62 @@ export function semestres(gestion) {
       fin: ajouterMois(s.debut, i * 6),
       montant: s.montants?.[i - 1] ?? null,
       facture: s.factures?.[i] || "",
-      dep: (gestion.deps || []).some((d) => Number(d.semestre) === i) || Boolean(s.depFaites?.[i]),
+      dep: couverts.has(i) || Boolean(s.depFaites?.[i]),
+      depDetail: couverts.get(i) || null,
     });
   }
   return liste;
+}
+
+// Année de contention qui suit les semestres (ou commence au passage en phase contention).
+export function anneeContention(gestion) {
+  const s = gestion?.semestres;
+  if (!s?.debut || !s.nombre || gestion.phase === "suspension") return null;
+  const debut =
+    gestion.phase === "contention" && gestion.phaseDepuis ? gestion.phaseDepuis : ajouterMois(s.debut, s.nombre * 6);
+  const dep = couverture(gestion).get("C") || null;
+  return { debut, fin: ajouterMois(debut, 12), montant: s.contention ?? null, dep: Boolean(dep), depDetail: dep };
+}
+
+function jours(debut, fin) {
+  return (new Date(`${fin}T12:00:00Z`) - new Date(`${debut}T12:00:00Z`)) / 86400000;
+}
+
+// « 3 mois et 2 semaines », « 2 ans et 3 mois ».
+export function dureeLisible(debut, fin) {
+  if (!debut || !fin || fin <= debut) return "";
+  const mois = moisEntre(debut, fin);
+  const pluriel = (n, mot) => `${n} ${mot}${n > 1 && !mot.endsWith("s") ? "s" : ""}`;
+  if (mois >= 12) {
+    const ans = Math.floor(mois / 12);
+    const reste = mois % 12;
+    return pluriel(ans, "an") + (reste ? ` et ${reste} mois` : "");
+  }
+  const semaines = Math.floor(jours(ajouterMois(debut, mois), fin) / 7);
+  if (!mois) return semaines ? pluriel(semaines, "semaine") : pluriel(Math.round(jours(debut, fin)), "jour");
+  return `${mois} mois` + (semaines ? ` et ${pluriel(semaines, "semaine")}` : "");
+}
+
+// Frise du traitement : semestres puis contention, remplis selon le temps écoulé.
+export function frise(gestion, auj = aujourdhui()) {
+  const liste = semestres(gestion);
+  if (!liste.length) return null;
+  const remplissage = (debut, fin) => Math.min(1, Math.max(0, jours(debut, auj) / jours(debut, fin)));
+  const segments = liste.map((s) => ({ ...s, cle: String(s.numero), libelle: String(s.numero), contention: false }));
+  const c = anneeContention(gestion);
+  if (c) segments.push({ ...c, cle: "C", libelle: "C1", contention: true, numero: null, facture: "" });
+  for (const s of segments) s.remplissage = remplissage(s.debut, s.fin);
+  const courant = segments.find((s) => s.debut <= auj && auj < s.fin) || null;
+  const finSemestres = liste.at(-1).fin;
+  const aFacturer = liste.filter((s) => s.debut <= auj && !s.facture);
+  return {
+    segments,
+    nombre: liste.length,
+    courant,
+    finSemestres,
+    resteAFacturer: aFacturer.reduce((t, s) => t + (Number(s.montant) || 0), 0),
+    semestresAFacturer: aFacturer.length,
+  };
 }
 
 // Date de la dernière séance (« jj/mm/aaaa » ou ISO), ou du début du traitement.
@@ -213,19 +283,41 @@ export function echeancesPatient(p, auj = aujourdhui()) {
           s.debut,
           s.montant ? euros(s.montant) : "",
         );
-      if (!s.dep) ajouter(`dep-${s.numero}`, "dep", `Faire la DEP du semestre ${s.numero}`, s.debut);
-      const renouvellement = ajouterMois(s.debut, 5);
-      if (renouvellement <= auj && s.numero < (g.semestres?.nombre || 0))
+    }
+  }
+  if (g.phase !== "suspension") {
+    // DEP : une pour deux semestres, puis une pour la contention ; rappel un mois avant.
+    const nombre = g.semestres?.nombre || 0;
+    const groupes = semestres(g)
+      .filter((s) => s.numero % 2 === 1)
+      .map((s) => ({
+        cle: s.numero,
+        titre: s.numero + 1 <= nombre ? `semestres ${s.numero} et ${s.numero + 1}` : `semestre ${s.numero}`,
+        debut: s.debut,
+        dep: s.dep,
+      }));
+    const c = anneeContention(g);
+    if (c) groupes.push({ cle: "C", titre: "l'année de contention", debut: c.debut, dep: c.dep });
+    for (const groupe of groupes) {
+      if (groupe.dep) continue;
+      if (groupe.debut <= auj && (actif || groupe.cle === "C"))
         ajouter(
-          `renouv-${s.numero}`,
+          `dep-${groupe.cle}`,
+          "dep",
+          `Faire la DEP des ${groupe.titre}`.replace("des l'", "de l'").replace("des semestre ", "du semestre "),
+          groupe.debut,
+        );
+      else if (ajouterMois(groupe.debut, -1) <= auj && groupe.debut > auj)
+        ajouter(
+          `renouv-${groupe.cle}`,
           "depRenouvellement",
-          `Préparer la DEP du semestre ${s.numero + 1}`,
-          renouvellement,
+          `Préparer la DEP des ${groupe.titre}`.replace("des l'", "de l'").replace("des semestre ", "du semestre "),
+          ajouterMois(groupe.debut, -1),
         );
     }
   }
   for (const d of g.deps || []) {
-    if (!d.envoyee) ajouter(`envoi-${d.id}`, "depEnvoi", `Envoyer la DEP du semestre ${d.semestre || "?"}`, d.date);
+    if (!d.envoyee) ajouter(`envoi-${d.id}`, "depEnvoi", `Envoyer la ${libelleDep(d)}`, d.date);
   }
   const delai = Number(g.nonRevuMois) || 0;
   const derniere = derniereVisite(p.seances, g);
@@ -244,6 +336,13 @@ export function echeancesPatient(p, auj = aujourdhui()) {
       ajouter(`labo-${l.id}`, "labo", `${l.appareil} non reçu`, l.prevu, l.laboratoire || "");
   }
   return liste;
+}
+
+export function libelleDep(d) {
+  if (d.nature === "contention") return "DEP de contention";
+  if (d.nature === "surveillance") return "DEP de surveillance";
+  const n = premierDuGroupe(Number(d.numero || d.semestre) || 1);
+  return `DEP des semestres ${n} et ${n + 1}`;
 }
 
 export const TYPES_ECHEANCES = {

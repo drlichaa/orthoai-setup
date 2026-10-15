@@ -218,3 +218,12 @@ avec votre DPO.
 - Les champs déjà remplis dans OrthoAI ne sont jamais écrasés ; l'import ne fait que compléter les champs vides (téléphone, e-mail, correspondants, début du traitement…).
 - Le dernier état OrthoFast (type de traitement, DEP faite et prochaine, règlements dus) est remplacé à chaque import et s'affiche dans les onglets **Patient** et **Devis & semestres** de la fiche.
 - Les exports Excel/CSV sont exclus du dépôt (`.gitignore`) : ne jamais les y ajouter.
+
+## Frise du traitement
+
+Créée dès qu'un devis est validé (« Signé : démarrer ») : un segment par semestre (6 mois à partir du début du traitement), puis l'année de contention (C1). Elle s'affiche en haut de la **Fiche clinique** et dans **Devis & semestres**.
+
+- Le temps écoulé remplit les segments en bleu (jaune pour la contention) ; un trait rouge marque aujourd'hui.
+- Une DEP couvre deux semestres (S1-S2, S3-S4, S5-S6), puis une DEP pour la contention. Dès qu'une DEP est imprimée, un point vert apparaît sur les semestres qu'elle couvre ; un rond orange signale une DEP due. « Préparer une DEP » propose automatiquement la suivante.
+- Sous la frise : semestre en cours et date de fin, durée restante du traitement, reste à facturer.
+- Tâches : « Faire la DEP des semestres 3 et 4 » au début du groupe, rappel un mois avant.
