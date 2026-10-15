@@ -7,6 +7,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scrypt } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { statutDepuisOrthofast } from "./correspondanceOrthofast.js";
 
 const PARAMETRES_SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const DELAI_VERROUILLAGE_MS = 30 * 60 * 1000;
@@ -673,6 +674,8 @@ export function creerHistorique(fichier) {
           orthodontiste: texte(brut.orthodontiste, 200),
           debut: /^\d{4}-\d{2}-\d{2}$/.test(brut.debutTraitement || "") ? brut.debutTraitement : "",
         };
+        // Statut et type déduits de la colonne « Type de traitement » d'OrthoFast.
+        const deduit = statutDepuisOrthofast(brut.typeTraitement, reglages.statuts);
         const orthofast = nettoyerJson({
           importeLe: maintenant,
           typeTraitement: brut.typeTraitement,
@@ -690,14 +693,33 @@ export function creerHistorique(fichier) {
           for (const [champ, valeur] of Object.entries(complements)) {
             if (valeur && !patient[champ]) patient[champ] = valeur;
           }
+          // Le statut n'est remplacé que s'il n'a pas été changé dans OrthoAI :
+          // vide, statut par défaut d'un précédent import, ou dernier statut importé.
+          const statutParDefaut = reglages.statuts[0]?.nom || "";
+          const statutNonModifie =
+            !patient.statut ||
+            patient.statut === patient.orthofast?.statutImporte ||
+            (patient.orthofast && !patient.orthofast.statutImporte && patient.statut === statutParDefaut);
+          if (deduit && statutNonModifie) patient.statut = deduit.statut;
+          if (deduit?.type && !patient.type) patient.type = deduit.type;
+          if (deduit) orthofast.statutImporte = deduit.statut;
           patient.code = code;
           patient.lieu = lieu;
           patient.orthofast = orthofast;
           patient.modifieLe = maintenant;
           bilan.misAJour++;
         } else {
+          if (deduit) orthofast.statutImporte = deduit.statut;
           patient = nettoyerPatient(
-            { ...entrant, ...complements, code, lieu, statut: reglages.statuts[0]?.nom || "", orthofast },
+            {
+              ...entrant,
+              ...complements,
+              code,
+              lieu,
+              statut: deduit?.statut || reglages.statuts[0]?.nom || "",
+              type: deduit?.type || "",
+              orthofast,
+            },
             null,
           );
           patients = [...patients, patient];
