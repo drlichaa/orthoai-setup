@@ -10,7 +10,7 @@ import Historique, { Verrou } from "./Historique.jsx";
 import Patients from "./Patients.jsx";
 import Navigation from "./Navigation.jsx";
 import TableauDeBord from "./TableauDeBord.jsx";
-import Taches, { Laboratoire } from "./Taches.jsx";
+import Taches, { Laboratoire, Relances } from "./Taches.jsx";
 import ResumeACopier from "./ResumeACopier.jsx";
 import { cabinetPour, lieuMemorise, lieux, memoriserLieu } from "./lieux.js";
 import { appelHistorique } from "./apiHistorique.js";
@@ -180,6 +180,7 @@ const ADRESSES = {
   patients: "patients",
   historique: "comptes-rendus",
   taches: "taches",
+  relances: "relances",
   labo: "laboratoire",
   catalogue: "parametres",
 };
@@ -552,6 +553,10 @@ export default function ConsultationApp() {
     );
   } else if (vue === "taches") {
     contenu = <Taches cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} />;
+  } else if (vue === "relances") {
+    contenu = (
+      <Relances cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} onCabinetChange={setCabinet} />
+    );
   } else if (vue === "labo") {
     contenu = <Laboratoire lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} />;
   } else if (vue === "historique") {

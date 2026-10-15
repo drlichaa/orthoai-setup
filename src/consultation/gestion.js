@@ -200,6 +200,8 @@ function couverture(gestion) {
       couverts.set(n, d).set(n + 1, d);
     } else if (Number(d.semestre)) couverts.set(Number(d.semestre), d);
   }
+  if (gestion?.semestres?.depFaites?.C && !couverts.has("C"))
+    couverts.set("C", { nature: "contention", date: gestion.semestres.depFaites.C });
   couvertureOrthofast(gestion, couverts);
   return couverts;
 }
@@ -492,3 +494,72 @@ export const DEP_CASES = {
   R: [716, 378],
   HR: [902, 378],
 };
+
+// ----- Relances (devis, attente, suivi) -----
+
+export const RELANCES_PAR_DEFAUT = { devisMois: 1, attenteMois: 12, suiviMois: 3 };
+
+export function delaisRelances(cabinet) {
+  return { ...RELANCES_PAR_DEFAUT, ...(cabinet?.relances || {}) };
+}
+
+export const TYPES_RELANCES = {
+  devis: { titre: "Devis à relancer", delai: "devisMois", depuis: "Devis du" },
+  attente: { titre: "Patients en attente (trop tôt) à revoir", delai: "attenteMois", depuis: "En attente depuis le" },
+  suivi: { titre: "Patients en traitement non revus", delai: "suiviMois", depuis: "Dernière séance le" },
+};
+
+const dateValide = (v) => (/^\d{4}-\d{2}-\d{2}/.test(v || "") ? v.slice(0, 10) : isoDepuisFr(v || ""));
+const EN_COURS_DE_TRAITEMENT = /^(en traitement|en cours)$/i;
+
+// Relances dues d'un dossier : [{ type, reference, echeance, derniereRelance, detail }].
+// Après une relance, le dossier revient au bout du même délai.
+export function relancesPatient(p, delais, auj = aujourdhui()) {
+  const g = p.gestion || {};
+  const r = g.relances || {};
+  const liste = [];
+  const statut = p.statut || "";
+  const ajouter = (type, reference, detail = "") => {
+    if (!reference || r.stop?.[type]) return;
+    const derniere =
+      (r.historique?.[type] || [])
+        .map((h) => h.date)
+        .sort()
+        .at(-1) || "";
+    const depart = derniere > reference ? derniere : reference;
+    const echeance = ajouterMois(depart, Number(delais[TYPES_RELANCES[type].delai]) || 0);
+    if (echeance <= auj) liste.push({ type, reference, echeance, derniereRelance: derniere, detail });
+  };
+
+  // Devis : dernier devis non validé (OrthoAI), sinon statut « Devis envoyé » repris d'OrthoFast.
+  const devis = g.devis || [];
+  const enTraitement = EN_COURS_DE_TRAITEMENT.test(statut) || devis.some((d) => d.valide) || g.semestres?.debut;
+  if (!enTraitement && !/sans suite|archiv|termin/i.test(statut)) {
+    const dernier = [...devis]
+      .sort((a, b) => (a.envoye || a.date || "").localeCompare(b.envoye || b.date || ""))
+      .at(-1);
+    if (dernier) ajouter("devis", dernier.envoye || dernier.date, dernier.description || "");
+    else if (/devis envoy/i.test(statut))
+      ajouter("devis", dateValide(p.orthofast?.depuis) || p.derniereFiche, p.orthofast?.typeTraitement || "");
+  }
+
+  if (/attente/i.test(statut))
+    ajouter(
+      "attente",
+      dateValide(p.orthofast?.miseEnAttente) ||
+        dateValide(p.miseEnAttente) ||
+        dateValide(p.orthofast?.depuis) ||
+        p.derniereFiche,
+    );
+
+  if (EN_COURS_DE_TRAITEMENT.test(statut) && g.phase !== "suspension") {
+    const derniere = (p.seances || []).map(dateValide).filter(Boolean).sort().at(-1);
+    if (derniere) ajouter("suivi", derniere, p.type || "");
+  }
+  return liste;
+}
+
+// Patients en traitement dont aucune séance n'est saisie dans OrthoAI (suivi tenu dans OrthoFast).
+export function sansSeance(p) {
+  return EN_COURS_DE_TRAITEMENT.test(p.statut || "") && !(p.seances || []).some((s) => dateValide(s));
+}

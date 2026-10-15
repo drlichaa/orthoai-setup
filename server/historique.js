@@ -4,6 +4,13 @@
 // sans le mot de passe, rien n'est lisible ni récupérable.
 // Après déverrouillage, la clé reste en mémoire puis s'efface après 30 minutes
 // d'inactivité ou à la fermeture.
+import {
+  MESSAGERIE_PAR_DEFAUT,
+  envoyerMail as envoyerMailSmtp,
+  messageriePublique,
+  nettoyerMessagerie,
+  verifierMessagerie,
+} from "./messagerie.js";
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scrypt } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -216,6 +223,8 @@ export function creerHistorique(fichier) {
   let reglages = REGLAGES_PAR_DEFAUT;
   // Tâches du cabinet et échéances écartées, partagées par tous les postes.
   let gestion = { taches: [], ignorees: [] };
+  // Messagerie (compte Gmail du cabinet, modèles) : rangée dans le coffre chiffré.
+  let messagerie = MESSAGERIE_PAR_DEFAUT;
   let minuteur = null;
 
   function verrouiller() {
@@ -225,6 +234,7 @@ export function creerHistorique(fichier) {
     patients = [];
     reglages = REGLAGES_PAR_DEFAUT;
     gestion = { taches: [], ignorees: [] };
+    messagerie = MESSAGERIE_PAR_DEFAUT;
     clearTimeout(minuteur);
   }
 
@@ -252,7 +262,7 @@ export function creerHistorique(fichier) {
     const enveloppe = {
       version: 2,
       sel: sel.toString("base64"),
-      ...chiffrer(cle, { fiches, patients, reglages, gestion }),
+      ...chiffrer(cle, { fiches, patients, reglages, gestion, messagerie }),
     };
     ecrireAtomique(fichier, JSON.stringify(enveloppe));
   }
@@ -268,6 +278,7 @@ export function creerHistorique(fichier) {
       patients = donnees.patients || [];
       reglages = completerReglages(donnees.reglages);
       gestion = { taches: [], ignorees: [], ...(donnees.gestion || {}) };
+      messagerie = donnees.messagerie ? nettoyerMessagerie(donnees.messagerie) : MESSAGERIE_PAR_DEFAUT;
     }
   }
 
@@ -817,6 +828,23 @@ export function creerHistorique(fichier) {
           ...resumePatient(p),
           gestion: p.gestion || {},
           seances: (p.seances || []).map((s) => s.date),
+          // Pour la page Relances : contacts et dates de référence.
+          telephone: p.telephone,
+          portable: p.portable,
+          email: p.email,
+          miseEnAttente: p.miseEnAttente,
+          orthofast: p.orthofast
+            ? {
+                typeTraitement: p.orthofast.typeTraitement,
+                depuis: p.orthofast.depuis,
+                miseEnAttente: p.orthofast.miseEnAttente,
+              }
+            : undefined,
+          derniereFiche: fiches
+            .filter((f) => f.patientId === p.id)
+            .map((f) => (f.creeLe || "").slice(0, 10))
+            .sort()
+            .at(-1),
         })),
       };
     },
@@ -829,6 +857,60 @@ export function creerHistorique(fichier) {
       };
       sauvegarder();
       return gestion;
+    },
+
+    messagerie() {
+      exiger();
+      return messageriePublique(messagerie);
+    },
+
+    // Réglages de messagerie : vérifiés auprès de Gmail avant d'être enregistrés.
+    async enregistrerMessagerie(brut) {
+      exiger();
+      const suivante = nettoyerMessagerie(brut, messagerie);
+      const identifiantsChanges =
+        suivante.adresse !== messagerie.adresse || suivante.motDePasse !== messagerie.motDePasse;
+      if (identifiantsChanges && suivante.adresse && suivante.motDePasse) await verifierMessagerie(suivante);
+      exiger();
+      messagerie = suivante;
+      sauvegarder();
+      return messageriePublique(messagerie);
+    },
+
+    // Envoi d'un e-mail ; trace (sans contenu) dans le dossier du patient.
+    async envoyerMail(brut, pieces) {
+      exiger();
+      const patient = brut?.patientId ? trouverPatient(brut.patientId) : null;
+      const objet = texte(brut?.objet, 500).trim();
+      const corps = texte(brut?.corps, 20000);
+      if (!objet) throw new ErreurHistorique(400, "Indiquez l'objet du message.");
+      let resultat;
+      try {
+        resultat = await envoyerMailSmtp(messagerie, { a: brut?.a, cc: brut?.cc, objet, corps, pieces });
+      } catch (err) {
+        throw new ErreurHistorique(err.statut || 400, err.message);
+      }
+      if (patient) {
+        exiger();
+        const g = patient.gestion || {};
+        const trace = {
+          date: new Date().toISOString(),
+          a: texte(brut.a, 500),
+          objet,
+          pieces: pieces.map((p) => p.nom),
+          ...(brut.devisId ? { devisId: texte(brut.devisId, 60) } : {}),
+        };
+        patient.gestion = nettoyerJson({
+          ...g,
+          mails: [...(g.mails || []), trace].slice(-200),
+          devis: brut.devisId
+            ? (g.devis || []).map((d) => (d.id === brut.devisId ? { ...d, envoye: trace.date.slice(0, 10) } : d))
+            : g.devis,
+        });
+        patient.modifieLe = trace.date;
+        sauvegarder();
+      }
+      return { ok: true, ...resultat, gestion: patient?.gestion };
     },
 
     // Modifie seulement la partie « gestion » d'un dossier (depuis les tâches).

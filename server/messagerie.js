@@ -1,0 +1,184 @@
+// Envoi d'e-mails depuis l'application (compte Gmail du cabinet, mot de passe
+// d'application). Les réglages, dont le mot de passe, sont rangés dans le coffre
+// chiffré ; le mot de passe n'est jamais renvoyé aux postes.
+import nodemailer from "nodemailer";
+
+const texte = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
+
+export const CATEGORIES_MODELES = ["Devis", "Compte rendu", "Rendez-vous", "Courrier", "Autre"];
+
+// Modèles proposés au départ (repris des messages types d'OrthoFast), modifiables.
+const devis = (id, traitement) => ({
+  id,
+  categorie: "Devis",
+  nom: `Devis ${traitement}`,
+  objet: `Cabinet d'Orthodontie du {praticien} - Devis ${traitement}`,
+  corps: `Bonjour,
+
+Ci-joint votre devis d'orthodontie pour des ${traitement}.
+
+Vous pouvez prendre un prochain RDV pour un bilan orthodontique (empreintes optiques, photographies, radiographies) via Doctolib ou par retour de mail.
+
+Prise de RDV :
+{lienRdv}
+
+Je reste à votre disposition pour tout complément d'information.`,
+});
+
+export const MODELES_PAR_DEFAUT = [
+  devis("devis-metal", "brackets métalliques"),
+  devis("devis-ceramique", "brackets céramo-métalliques"),
+  {
+    ...devis("devis-gouttieres", "gouttières d'alignement"),
+    corps: devis("", "gouttières d'alignement").corps.replace("pour des gouttières", "par gouttières"),
+  },
+  {
+    id: "cr-patient",
+    categorie: "Compte rendu",
+    nom: "Compte rendu au patient",
+    objet: "Compte rendu du {praticien}",
+    corps:
+      "Bonjour,\n\nVeuillez trouver ci-joint le compte rendu du {praticien} concernant votre consultation.\n\nBien cordialement,",
+  },
+  {
+    id: "cr-plan",
+    categorie: "Compte rendu",
+    nom: "Plan de traitement",
+    objet: "Plan de traitement - {praticien}",
+    corps:
+      "Bonjour,\n\nVeuillez trouver ci-joint le compte rendu du plan de traitement du {praticien}.\n\nBien cordialement,",
+  },
+  {
+    id: "cr-chirurgien",
+    categorie: "Courrier",
+    nom: "Courrier chirurgien maxillo-facial",
+    objet: "Compte rendu Chirurgien Maxillo-Facial - {praticien}",
+    corps:
+      "Bonjour,\n\nComme convenu, ci-joint votre courrier pour le chirurgien maxillo-facial.\n\nBien cordialement,",
+  },
+  {
+    id: "rdv-refixer",
+    categorie: "Rendez-vous",
+    nom: "Refixer un rendez-vous",
+    objet: "Cabinet d'orthodontie du {praticien}",
+    corps:
+      "Bonjour,\n\nJe me permets de vous contacter pour refixer un rendez-vous concernant {prenom}.\n\nPrise de RDV :\n{lienRdv}\n\nBien cordialement,",
+  },
+];
+
+export const MESSAGERIE_PAR_DEFAUT = {
+  adresse: "",
+  nom: "",
+  motDePasse: "",
+  signature: "",
+  liensRdv: {},
+  modeles: MODELES_PAR_DEFAUT,
+};
+
+export function nettoyerMessagerie(brut, precedent = MESSAGERIE_PAR_DEFAUT) {
+  const adresse = texte(brut?.adresse, 200).trim().toLowerCase();
+  const motDePasse = texte(brut?.motDePasse, 100).replace(/\s+/g, "");
+  const liensRdv = {};
+  for (const [lieu, lien] of Object.entries(brut?.liensRdv || {}).slice(0, 10))
+    if (/^[\w-]{1,30}$/.test(lieu)) liensRdv[lieu] = texte(lien, 2000).trim();
+  const modeles = Array.isArray(brut?.modeles)
+    ? brut.modeles.slice(0, 200).map((m, i) => ({
+        id: texte(m?.id, 60) || `modele-${Date.now()}-${i}`,
+        categorie: CATEGORIES_MODELES.includes(m?.categorie) ? m.categorie : "Autre",
+        nom: texte(m?.nom, 200),
+        objet: texte(m?.objet, 500),
+        corps: texte(m?.corps, 20000),
+      }))
+    : precedent.modeles;
+  return {
+    adresse: adresse || precedent.adresse,
+    nom: texte(brut?.nom, 200),
+    // Champ laissé vide : on garde le mot de passe déjà enregistré.
+    motDePasse: motDePasse || precedent.motDePasse,
+    signature: texte(brut?.signature, 5000),
+    liensRdv,
+    modeles,
+  };
+}
+
+// Version envoyée aux postes : sans le mot de passe.
+export function messageriePublique(m) {
+  const { motDePasse, ...reste } = m;
+  return { ...reste, motDePasseEnregistre: Boolean(motDePasse) };
+}
+
+function transporteur(m) {
+  if (!m.adresse || !m.motDePasse)
+    throw Object.assign(
+      new Error(
+        "Messagerie non configurée : renseignez l'adresse Gmail et le mot de passe d'application dans Paramètres.",
+      ),
+      { statut: 400 },
+    );
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user: m.adresse, pass: m.motDePasse },
+  });
+}
+
+function messageErreur(err) {
+  if (err?.statut) return err.message;
+  if (err?.responseCode === 535 || /Invalid login|Username and Password/i.test(err?.message || ""))
+    return "Gmail refuse la connexion : vérifiez l'adresse et le mot de passe d'application (16 lettres, pas le mot de passe habituel du compte).";
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ECONNRESET/.test(err?.code || ""))
+    return "Impossible de joindre Gmail : vérifiez la connexion Internet du serveur.";
+  return `Envoi impossible : ${err?.message || "erreur inconnue"}`;
+}
+
+export async function verifierMessagerie(m) {
+  try {
+    await transporteur(m).verify();
+  } catch (err) {
+    throw Object.assign(new Error(messageErreur(err)), { statut: 400 });
+  }
+}
+
+const ADRESSE = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
+
+export function listeAdresses(v) {
+  const liste = String(v || "")
+    .split(/[,;\s]+/)
+    .map((a) => a.trim())
+    .filter(Boolean);
+  for (const a of liste)
+    if (!ADRESSE.test(a)) throw Object.assign(new Error(`Adresse e-mail invalide : ${a}`), { statut: 400 });
+  return liste.slice(0, 20);
+}
+
+function echapper(t) {
+  return t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+}
+
+// Texte → HTML simple : paragraphes et liens cliquables.
+export function texteVersHtml(t) {
+  return echapper(t)
+    .replace(/https?:\/\/[^\s<]+/g, (url) => `<a href="${url}">${url}</a>`)
+    .replace(/\n/g, "<br>");
+}
+
+export async function envoyerMail(m, { a, cc, objet, corps, pieces }) {
+  const destinataires = listeAdresses(a);
+  if (!destinataires.length) throw Object.assign(new Error("Indiquez au moins un destinataire."), { statut: 400 });
+  const texteComplet = m.signature ? `${corps}\n\n${m.signature}` : corps;
+  try {
+    const info = await transporteur(m).sendMail({
+      from: m.nom ? { name: m.nom, address: m.adresse } : m.adresse,
+      to: destinataires,
+      cc: listeAdresses(cc),
+      subject: objet,
+      text: texteComplet,
+      html: `<div style="font-family:Arial,sans-serif;font-size:14px">${texteVersHtml(texteComplet)}</div>`,
+      attachments: pieces.map((p) => ({ filename: p.nom, content: p.contenu, contentType: p.type })),
+    });
+    return { id: info.messageId, acceptes: info.accepted?.length ?? destinataires.length };
+  } catch (err) {
+    throw Object.assign(new Error(messageErreur(err)), { statut: 400 });
+  }
+}

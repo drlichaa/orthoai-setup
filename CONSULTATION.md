@@ -227,3 +227,13 @@ Créée dès qu'un devis est validé (« Signé : démarrer ») : un segment par
 - Une DEP couvre deux semestres (S1-S2, S3-S4, S5-S6), puis une DEP pour la contention. Dès qu'une DEP est imprimée, un point vert apparaît sur les semestres qu'elle couvre ; un rond orange signale une DEP due. « Préparer une DEP » propose automatiquement la suivante.
 - Sous la frise : semestre en cours et date de fin, durée restante du traitement, reste à facturer.
 - Tâches : « Faire la DEP des semestres 3 et 4 » au début du groupe, rappel un mois avant.
+
+## Relances
+
+Page **Relances** (menu) : trois listes, filtrées par cabinet.
+
+- **Devis à relancer** : devis non validé depuis plus d'1 mois (ou statut « Devis envoyé » repris d'OrthoFast, à partir de la date « Depuis le »).
+- **Patients en attente (trop tôt)** depuis plus d'1 an (date de mise en attente OrthoFast).
+- **Patients en traitement non revus** : dernière séance saisie dans OrthoAI il y a plus de 3 mois. Les patients sans aucune séance saisie (suivi tenu dans OrthoFast) sont listés à part.
+
+« Relancé » enregistre la date et une note ; le patient revient au bout du même délai s'il n'a pas donné suite. « Ne plus relancer » l'écarte définitivement. Les délais se règlent en haut de chaque liste.

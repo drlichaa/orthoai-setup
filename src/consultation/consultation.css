@@ -570,3 +570,18 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-frise-entete .oa-frise { padding-bottom: 4px; }
 .oa-frise-mini-case.encours.verifier { background: #fff; color: var(--cr-accent); border-color: var(--cr-accent); }
 .oa-frise-seg.verifier { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.35) 6px 9px); }
+
+/* Relances */
+.oa-chiffre-bouton { cursor: pointer; font: inherit; }
+.oa-chiffre-bouton.actif { border-color: var(--cr-accent); box-shadow: 0 0 0 1px var(--cr-accent) inset; }
+.oa-relance-detail { display: block; color: var(--cr-doux); font-size: 0.8rem; }
+.oa-relances td { vertical-align: top; }
+.oa-relances .oa-pastille-lieu { margin-left: 6px; }
+.oa-relance-actions { white-space: nowrap; text-align: right; }
+.oa-relance-actions button { margin: 0 0 0 8px; }
+.oa-delai { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; }
+.oa-delai input { width: 64px; }
+.oa-sans-seance { margin-top: 12px; font-size: 0.9rem; }
+.oa-sans-seance summary { cursor: pointer; color: var(--cr-doux); }
+.oa-sans-seance ul { columns: 2; margin: 8px 0 0; }
+@media (max-width: 700px) { .oa-sans-seance ul { columns: 1; } .oa-relance-actions { white-space: normal; } }
