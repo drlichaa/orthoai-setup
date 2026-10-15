@@ -43,6 +43,27 @@ function completerReglages(reglages) {
   return { ...reglages, version: REGLAGES_PAR_DEFAUT.version, statuts };
 }
 
+// Données de gestion (devis, semestres, DEP, laboratoire, tâches…) : structure
+// libre côté application, mais bornée ici (profondeur, tailles, clés simples).
+export function nettoyerJson(valeur, profondeur = 0) {
+  if (profondeur > 8) return null;
+  if (typeof valeur === "string") return valeur.slice(0, 20000);
+  if (typeof valeur === "number") return Number.isFinite(valeur) ? valeur : null;
+  if (typeof valeur === "boolean" || valeur === null) return valeur;
+  if (Array.isArray(valeur)) return valeur.slice(0, 2000).map((v) => nettoyerJson(v, profondeur + 1));
+  if (typeof valeur === "object") {
+    return Object.fromEntries(
+      Object.entries(valeur)
+        .filter(([cle]) => /^[\w-]{1,60}$/.test(cle))
+        .slice(0, 500)
+        .map(([cle, v]) => [cle, nettoyerJson(v, profondeur + 1)]),
+    );
+  }
+  return null;
+}
+
+const objet = (v) => (v && typeof v === "object" && !Array.isArray(v) ? nettoyerJson(v) : {});
+
 function deriverCle(motDePasse, sel) {
   return new Promise((resolvePromise, reject) => {
     scrypt(motDePasse.normalize("NFC"), sel, 32, PARAMETRES_SCRYPT, (err, cle) => (err ? reject(err) : resolvePromise(cle)));
@@ -155,6 +176,8 @@ export function creerHistorique(fichier) {
   let fiches = [];
   let patients = [];
   let reglages = REGLAGES_PAR_DEFAUT;
+  // Tâches du cabinet et échéances écartées, partagées par tous les postes.
+  let gestion = { taches: [], ignorees: [] };
   let minuteur = null;
 
   function verrouiller() {
@@ -163,6 +186,7 @@ export function creerHistorique(fichier) {
     fiches = [];
     patients = [];
     reglages = REGLAGES_PAR_DEFAUT;
+    gestion = { taches: [], ignorees: [] };
     clearTimeout(minuteur);
   }
 
@@ -187,7 +211,7 @@ export function creerHistorique(fichier) {
   }
 
   function sauvegarder() {
-    const enveloppe = { version: 2, sel: sel.toString("base64"), ...chiffrer(cle, { fiches, patients, reglages }) };
+    const enveloppe = { version: 2, sel: sel.toString("base64"), ...chiffrer(cle, { fiches, patients, reglages, gestion }) };
     ecrireAtomique(fichier, JSON.stringify(enveloppe));
   }
 
@@ -201,6 +225,7 @@ export function creerHistorique(fichier) {
       fiches = donnees.fiches || [];
       patients = donnees.patients || [];
       reglages = completerReglages(donnees.reglages);
+      gestion = { taches: [], ignorees: [], ...(donnees.gestion || {}) };
     }
   }
 
@@ -311,6 +336,8 @@ export function creerHistorique(fichier) {
         ...(s?.compteRendu ? { compteRendu: texte(s.compteRendu, 100) } : {}),
       })),
       medias: existant?.medias || [],
+      // Devis, semestres, DEP, laboratoire, aligneurs, rappels, incidents…
+      gestion: objet(brut.gestion),
       // Séries de photos, radios ou empreintes 3D : élément du scénario → média.
       series: liste(brut.series)
         .filter((s) => /^[\w-]{1,100}$/.test(s?.id || ""))
@@ -589,6 +616,39 @@ export function creerHistorique(fichier) {
       patients = patients.filter((p) => p.id !== id);
       fiches = fiches.filter((f) => f.patientId !== id);
       sauvegarder();
+    },
+
+    // Vue d'ensemble pour les tâches, le laboratoire et les alertes.
+    gestion() {
+      exiger();
+      return {
+        ...gestion,
+        patients: patients.map((p) => ({
+          ...resumePatient(p),
+          gestion: p.gestion || {},
+          seances: (p.seances || []).map((s) => s.date),
+        })),
+      };
+    },
+
+    enregistrerGestion(brut) {
+      exiger();
+      gestion = {
+        taches: Array.isArray(brut?.taches) ? nettoyerJson(brut.taches) : gestion.taches,
+        ignorees: Array.isArray(brut?.ignorees) ? nettoyerJson(brut.ignorees) : gestion.ignorees,
+      };
+      sauvegarder();
+      return gestion;
+    },
+
+    // Modifie seulement la partie « gestion » d'un dossier (depuis les tâches).
+    enregistrerGestionPatient(id, brut) {
+      exiger();
+      const patient = trouverPatient(id);
+      patient.gestion = objet(brut);
+      patient.modifieLe = new Date().toISOString();
+      sauvegarder();
+      return patient.gestion;
     },
 
     enregistrerReglages(brut) {

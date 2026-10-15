@@ -1,5 +1,6 @@
 // Réglages du cabinet et catalogue des appareils avec leurs textes pré-enregistrés.
 import CleApi from "./CleApi.jsx";
+import ReglagesGestion from "./ReglagesGestion.jsx";
 import { OPERATIONS, SCENARIOS_PAR_DEFAUT } from "./scenarios.js";
 
 function identifiant(nom, existants) {
@@ -263,6 +264,13 @@ export default function CatalogueAppareils({
               onChange={(e) => onCabinetChange({ ...cabinet, identifiant: e.target.value })}
             />
           </label>
+          <label>
+            N° de la structure (AM, FINESS ou SIRET)
+            <input
+              value={cabinet.finess || ""}
+              onChange={(e) => onCabinetChange({ ...cabinet, finess: e.target.value })}
+            />
+          </label>
         </div>
         <div className="cr-champs-ligne cr-images">
           <ChampImage
@@ -277,6 +285,8 @@ export default function CatalogueAppareils({
           />
         </div>
       </section>
+
+      <ReglagesGestion cabinet={cabinet} onCabinetChange={onCabinetChange} />
 
       <EditeurScenarios
         scenarios={cabinet.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT}

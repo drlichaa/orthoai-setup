@@ -187,6 +187,7 @@ function Reglages({ reglages, patients, onChange }) {
 
 export default function Patients({
   patientId,
+  onglet,
   onSelection,
   onOuvrirCompteRendu,
   onNouvelleConsultation,
@@ -260,6 +261,7 @@ export default function Patients({
       <div className="cr-app cr-app-large">
         <FichePatient
           patientId={patientId}
+          ongletInitial={onglet}
           onRetour={() => onSelection(null)}
           onVerrouille={charger}
           onOuvrirCompteRendu={onOuvrirCompteRendu}

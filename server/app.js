@@ -120,6 +120,10 @@ async function routePatients(historique, req, res, url) {
   const corps = methode === "POST" ? await readJsonBody(req) : {};
   if (methode === "POST" && url === "/api/patients/enregistrer") return { patient: historique.enregistrerPatient(corps.patient) };
   if (methode === "POST" && url === "/api/patients/supprimer") return historique.supprimerPatient(corps.id);
+  if (methode === "GET" && url === "/api/patients/gestion") return historique.gestion();
+  if (methode === "POST" && url === "/api/patients/gestion") return historique.enregistrerGestion(corps);
+  if (methode === "POST" && url === "/api/patients/gestion/dossier")
+    return { gestion: historique.enregistrerGestionPatient(corps.id, corps.gestion) };
   if (methode === "POST" && url === "/api/patients/reglages") return { reglages: historique.enregistrerReglages(corps.reglages) };
   if (methode === "POST" && url === "/api/patients/media/supprimer") return historique.supprimerMedia(corps.patient, corps.id);
   throw new ErreurHistorique(404, "Route inconnue");

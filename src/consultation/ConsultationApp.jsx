@@ -10,6 +10,7 @@ import Historique, { Verrou } from "./Historique.jsx";
 import Patients from "./Patients.jsx";
 import Navigation from "./Navigation.jsx";
 import TableauDeBord from "./TableauDeBord.jsx";
+import Taches, { Laboratoire } from "./Taches.jsx";
 import { appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
 import { formaterNom, formaterPrenom } from "./format.js";
@@ -176,6 +177,8 @@ const ADRESSES = {
   consultation: "consultation",
   patients: "patients",
   historique: "comptes-rendus",
+  taches: "taches",
+  labo: "laboratoire",
   catalogue: "parametres",
 };
 
@@ -226,6 +229,8 @@ export default function ConsultationApp() {
   // Dossier patient rattaché à la consultation, et dossier affiché dans « Patients ».
   const [patientId, setPatientId] = useState(null);
   const [patientSelectionne, setPatientSelectionne] = useState(null);
+  // Onglet du dossier à ouvrir (depuis les tâches et alertes).
+  const [ongletPatient, setOngletPatient] = useState("clinique");
   const [secondes, setSecondes] = useState(0);
   // Fiche de l'historique en cours d'édition et état de son enregistrement.
   const [idHistorique, setIdHistorique] = useState(null);
@@ -484,6 +489,12 @@ export default function ConsultationApp() {
       return { ...r, plan_traitement: { ...r.plan_traitement, appareils: suivants } };
     });
 
+  function ouvrirPatient(id, onglet = "clinique") {
+    setOngletPatient(onglet);
+    setPatientSelectionne(id);
+    aller("patients");
+  }
+
   let contenu;
   if (vue === "tableau") {
     contenu = (
@@ -493,10 +504,7 @@ export default function ConsultationApp() {
           if (v === "patients") setPatientSelectionne(null);
           aller(v);
         }}
-        onOuvrirPatient={(id) => {
-          setPatientSelectionne(id);
-          aller("patients");
-        }}
+        onOuvrirPatient={ouvrirPatient}
         onOuvrirCompteRendu={ouvrirCompteRendu}
         onNouvelleConsultation={() => {
           if (rapport || transcription.trim()) nouvelleConsultation();
@@ -508,13 +516,21 @@ export default function ConsultationApp() {
     contenu = (
       <Patients
         patientId={patientSelectionne}
-        onSelection={setPatientSelectionne}
+        onglet={ongletPatient}
+        onSelection={(id) => {
+          setOngletPatient("clinique");
+          setPatientSelectionne(id);
+        }}
         onOuvrirCompteRendu={ouvrirCompteRendu}
         onNouvelleConsultation={consultationPour}
         cabinet={cabinet}
         appareils={appareils}
       />
     );
+  } else if (vue === "taches") {
+    contenu = <Taches cabinet={cabinet} onOuvrirPatient={ouvrirPatient} />;
+  } else if (vue === "labo") {
+    contenu = <Laboratoire onOuvrirPatient={ouvrirPatient} />;
   } else if (vue === "historique") {
     contenu = <Historique onOuvrir={ouvrirFiche} />;
   } else if (vue === "catalogue") {

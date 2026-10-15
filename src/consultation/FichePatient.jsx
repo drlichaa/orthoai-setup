@@ -4,6 +4,8 @@ import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import { texteExtractions } from "./modelesCourriers.js";
 import { appelApi, envoyerFichier, envoyerImage } from "./apiHistorique.js";
 import { SCENARIOS_PAR_DEFAUT, ligneSuivi } from "./scenarios.js";
+import GestionTraitement from "./GestionTraitement.jsx";
+import SuiviTraitement from "./SuiviTraitement.jsx";
 import SeriesImages, { PlancheDocument } from "./SeriesImages.jsx";
 import {
   STATUT_TRAITEMENT,
@@ -131,6 +133,7 @@ const FILS = [
 // Dossiers créés avant l'ajout de certains champs.
 const ARC_VIDE = { fil: "", depuis: "" };
 const DEFAUTS = {
+  gestion: {},
   series: [],
   courriers: [],
   dents: {},
@@ -230,6 +233,7 @@ function dateCourte() {
 }
 
 export default function FichePatient({
+  ongletInitial,
   patientId,
   onRetour,
   onVerrouille,
@@ -253,11 +257,13 @@ export default function FichePatient({
   const [imageOuverte, setImageOuverte] = useState(null);
   // Photo ou radio agrandie depuis la colonne de la fiche clinique.
   const [apercu, setApercu] = useState(null);
-  const [onglet, setOnglet] = useState("clinique");
+  const [onglet, setOnglet] = useState(ongletInitial || "clinique");
   // Courrier du dossier en cours d'impression (index).
   const [courrierImprime, setCourrierImprime] = useState(null);
   // Planche photos en cours d'impression.
   const [plancheImprimee, setPlancheImprimee] = useState(null);
+  // Devis ou DEP en cours d'impression.
+  const [documentImprime, setDocumentImprime] = useState(null);
   const enAttente = useRef(null);
   const minuteur = useRef(null);
   // Rappel du parent conservé à part : le recharger ne doit pas relire la fiche.
@@ -315,6 +321,16 @@ export default function FichePatient({
     clearTimeout(minuteur.current);
     if (immediat) enregistrer(suivant);
     else minuteur.current = setTimeout(() => enregistrer(suivant), 700);
+  }
+
+  // Modifie la partie gestion (devis, semestres, labo…) à partir de la dernière version.
+  const majGestion = (modif, immediat = true) =>
+    maj({ gestion: { ...(dernier.current.gestion || {}), ...modif } }, { immediat });
+
+  function imprimerDocument(element) {
+    flushSync(() => setDocumentImprime(element));
+    window.print();
+    setDocumentImprime(null);
   }
 
   const majLigne = (liste, index, champ, valeur) =>
@@ -413,7 +429,7 @@ export default function FichePatient({
 
   return (
     <>
-      <div className={courrierAImprimer || plancheImprimee ? "no-print" : undefined}>
+      <div className={courrierAImprimer || plancheImprimee || documentImprime ? "no-print" : undefined}>
         <header className="cr-entete">
           <button type="button" className="secondaire" onClick={onRetour}>
             ← Liste des patients
@@ -488,6 +504,8 @@ export default function FichePatient({
             ["clinique", "Fiche clinique"],
             ["patient", "Patient"],
             ["images", `Photos & radios (${images.length})`],
+            ["gestion", "Devis & semestres"],
+            ["suivi", "Suivi du traitement"],
           ].map(([cle, libelle]) => (
             <button
               key={cle}
@@ -902,6 +920,26 @@ export default function FichePatient({
           </>
         )}
 
+        {onglet === "gestion" && (
+          <GestionTraitement
+            patient={patient}
+            maj={maj}
+            majGestion={majGestion}
+            cabinet={cabinet}
+            datePremiere={
+              (dossier?.comptesRendus || [])
+                .map((c) => c.patient?.date)
+                .filter(Boolean)
+                .sort()[0] ||
+              patient.debut ||
+              patient.creeLe.slice(0, 10)
+            }
+            onImprimer={imprimerDocument}
+          />
+        )}
+
+        {onglet === "suivi" && <SuiviTraitement patient={patient} majGestion={majGestion} />}
+
         {onglet === "images" && (
           <>
             <SeriesImages
@@ -1017,6 +1055,7 @@ export default function FichePatient({
           cabinet={cabinet}
         />
       )}
+      {documentImprime}
       {courrierAImprimer && (
         <CourrierDocument
           courrier={courrierAImprimer}

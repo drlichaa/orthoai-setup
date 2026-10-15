@@ -201,3 +201,11 @@ elle est automatiquement refabriquée avec la nouvelle version.
 Avant une utilisation avec de vrais patients : informer le patient et recueillir son accord
 pour l'enregistrement, et vérifier la conformité RGPD / hébergement de données de santé (HDS)
 avec votre DPO.
+
+## Gestion du traitement (reprise d'OrthoManage)
+
+- **Devis & semestres** (onglet du dossier) : devis conventionnel au format officiel, avec ou sans prise en charge (HN proposé automatiquement à partir de 16 ans à la 1ère consultation). Barème réglable dans Paramètres → Honoraires (semestre interception / bagues métal 980 €, céramique 1080 €, aligneurs 1750 €, contention 750 €). Impression / PDF, envoi par e-mail, « Signé : démarrer » crée les semestres tous les 6 mois avec leurs montants.
+- **DEP** : formulaire Cerfa 10518*01 rempli automatiquement (diagnostic en cases à cocher), imprimé sur le fond officiel (`public/dep-page1.jpg`, `dep-page2.jpg`), historique et case « envoyée ».
+- **Suivi du traitement** (onglet) : progression, laboratoire (envoyé / reçu / posé), aligneurs avec calendrier modifiable, rappels différés, alerte « non revu depuis X mois », incidents, chronologie.
+- **Tâches** et **Laboratoire** (menu) : tâches manuelles partagées par le cabinet + échéances automatiques (facturation, DEP, envoi et renouvellement de DEP, non revus, rappels, appareils en retard), réglables dans Paramètres → Automatisations. Alertes résumées sur le tableau de bord.
+- Données : champ `gestion` de chaque dossier et `gestion.taches` du coffre, chiffrés comme le reste.

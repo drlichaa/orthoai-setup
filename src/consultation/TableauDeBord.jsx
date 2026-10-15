@@ -3,6 +3,7 @@ import { appelApi, appelHistorique } from "./apiHistorique.js";
 import { classeStatut, dateLongue, formaterDate } from "./format.js";
 import { Verrou } from "./Historique.jsx";
 import { Icone } from "./Navigation.jsx";
+import { AlertesSuivi } from "./Taches.jsx";
 
 // Page d'accueil : actions rapides, patients par statut, alertes et derniers
 // comptes rendus.
@@ -126,6 +127,8 @@ export default function TableauDeBord({
               </div>
             </div>
           </div>
+
+          <AlertesSuivi cabinet={cabinet} onOuvrirPatient={onOuvrirPatient} onAller={onAller} />
 
           <div className="oa-colonnes">
             <section className="cr-carte">
