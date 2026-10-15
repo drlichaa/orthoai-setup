@@ -237,3 +237,13 @@ Page **Relances** (menu) : trois listes, filtrées par cabinet.
 - **Patients en traitement non revus** : dernière séance saisie dans OrthoAI il y a plus de 3 mois. Les patients sans aucune séance saisie (suivi tenu dans OrthoFast) sont listés à part.
 
 « Relancé » enregistre la date et une note ; le patient revient au bout du même délai s'il n'a pas donné suite. « Ne plus relancer » l'écarte définitivement. Les délais se règlent en haut de chaque liste.
+
+## Envoi d'e-mails (Gmail du cabinet)
+
+**Réglage (une fois)** : Paramètres → Messagerie. Adresse Gmail du cabinet, nom affiché, **mot de passe d'application** Gmail (compte Google → Sécurité → Validation en deux étapes → Mots de passe des applications ; 16 lettres, pas le mot de passe habituel), signature, lien de prise de RDV de chaque cabinet. La connexion est vérifiée auprès de Gmail avant l'enregistrement. Ces réglages sont rangés dans le coffre chiffré du serveur ; le mot de passe n'est jamais réaffiché ni envoyé aux postes. Ne jamais le copier ailleurs (message, discussion, dépôt).
+
+**Modèles** : objets et messages types classés par catégorie (Devis, Compte rendu, Rendez-vous, Courrier, Autre), modifiables. Champs remplacés : `{prenom}`, `{nom}`, `{praticien}`, `{cabinet}`, `{lienRdv}`, `{date}`.
+
+**Envoyer un devis** : Devis & semestres → bouton « E-mail » du devis. Le modèle correspondant au traitement (métal, céramique, gouttières) est proposé, le devis est joint en PDF (`AAAAMMJJ_Code_DevisConventionnel.pdf`), d'autres fichiers peuvent être ajoutés. Après l'envoi, le devis est marqué « envoyé » et l'envoi est noté dans le dossier (date, destinataire, objet, pièces).
+
+Le PDF est créé par l'application du cabinet (Electron) ; les tests automatiques utilisent un faux serveur de messagerie local (`ORTHOAI_SMTP_TEST`), jamais Gmail.

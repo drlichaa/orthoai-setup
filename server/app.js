@@ -64,8 +64,8 @@ function readBody(req, maxBytes) {
   });
 }
 
-async function readJsonBody(req) {
-  const brut = await readBody(req, MAX_BODY_BYTES);
+async function readJsonBody(req, max = MAX_BODY_BYTES) {
+  const brut = await readBody(req, max);
   try {
     return JSON.parse(brut.toString("utf8") || "{}");
   } catch {
@@ -95,8 +95,45 @@ async function routeHistorique(historique, req, _res, url) {
   throw new ErreurHistorique(404, "Route inconnue");
 }
 
-async function routePatients(historique, req, res, url) {
+// Pièces jointes d'un e-mail : Gmail accepte 25 Mo, le base64 en ajoute un tiers.
+const MAX_MAIL_BYTES = 36 * 1024 * 1024;
+
+async function envoyerMailPatient(historique, req, genererPdf) {
+  const corps = await readJsonBody(req, MAX_MAIL_BYTES);
+  const pieces = [];
+  for (const d of (Array.isArray(corps.documents) ? corps.documents : []).slice(0, 5)) {
+    if (!genererPdf)
+      throw new ErreurHistorique(400, "Création de PDF possible seulement depuis l'application du cabinet.");
+    if (typeof d?.html !== "string" || d.html.length > 15 * 1024 * 1024)
+      throw new ErreurHistorique(400, "Document invalide.");
+    pieces.push({ nom: nomFichier(d.nom, "document.pdf"), type: "application/pdf", contenu: await genererPdf(d.html) });
+  }
+  for (const p of (Array.isArray(corps.pieces) ? corps.pieces : []).slice(0, 10)) {
+    if (typeof p?.base64 !== "string") continue;
+    pieces.push({
+      nom: nomFichier(p.nom, "piece-jointe"),
+      type: typeof p.type === "string" ? p.type.slice(0, 100) : "application/octet-stream",
+      contenu: Buffer.from(p.base64, "base64"),
+    });
+  }
+  if (pieces.reduce((t, p) => t + p.contenu.length, 0) > 25 * 1024 * 1024)
+    throw new ErreurHistorique(413, "Pièces jointes trop lourdes (25 Mo au maximum pour Gmail).");
+  return historique.envoyerMail(corps, pieces);
+}
+
+function nomFichier(nom, defaut) {
+  const propre = String(nom || "")
+    .replace(/[\\/:*?"<>|]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 150);
+  return propre || defaut;
+}
+
+async function routePatients(historique, req, res, url, { genererPdf } = {}) {
   const methode = req.method;
+  if (methode === "POST" && url === "/api/patients/messagerie/envoyer")
+    return envoyerMailPatient(historique, req, genererPdf);
   const parametres = new URL(req.url, "http://local").searchParams;
   if (methode === "GET" && url === "/api/patients") return historique.patients();
   const dossier = url.match(/^\/api\/patients\/dossier\/([\w-]+)$/);
@@ -129,6 +166,9 @@ async function routePatients(historique, req, res, url) {
     return historique.importerOrthofast(corps.lieu, corps.patients);
   if (methode === "POST" && url === "/api/patients/reglages")
     return { reglages: historique.enregistrerReglages(corps.reglages) };
+  if (methode === "GET" && url === "/api/patients/messagerie") return { messagerie: historique.messagerie() };
+  if (methode === "POST" && url === "/api/patients/messagerie")
+    return { messagerie: await historique.enregistrerMessagerie(corps.messagerie) };
   if (methode === "POST" && url === "/api/patients/media/supprimer")
     return historique.supprimerMedia(corps.patient, corps.id);
   throw new ErreurHistorique(404, "Route inconnue");
@@ -204,6 +244,8 @@ export function demarrerServeur({
   dossierStatique,
   fichierConfig,
   fichierHistorique = FICHIER_HISTORIQUE,
+  // Fourni par Electron : HTML → PDF (devis joint aux e-mails).
+  genererPdf = null,
 } = {}) {
   const config = creerConfig(fichierConfig);
   const historique = creerHistorique(fichierHistorique);
@@ -278,7 +320,7 @@ export function demarrerServeur({
     if (coffre) {
       try {
         const route = url.startsWith("/api/patients") ? routePatients : routeHistorique;
-        const resultat = await route(historique, req, res, url);
+        const resultat = await route(historique, req, res, url, { genererPdf });
         if (res.headersSent) return undefined;
         return sendJson(res, 200, resultat || { ok: true });
       } catch (err) {

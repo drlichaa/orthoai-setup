@@ -585,3 +585,15 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-sans-seance summary { cursor: pointer; color: var(--cr-doux); }
 .oa-sans-seance ul { columns: 2; margin: 8px 0 0; }
 @media (max-width: 700px) { .oa-sans-seance ul { columns: 1; } .oa-relance-actions { white-space: normal; } }
+
+/* Fenêtre d'envoi d'e-mail */
+.oa-modale-fond { position: fixed; inset: 0; z-index: 50; background: rgba(15, 23, 42, 0.45); display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; overflow-y: auto; }
+.oa-modale { width: min(760px, 100%); margin: 0; }
+.oa-mail textarea { width: 100%; font: inherit; line-height: 1.45; }
+.oa-mail-signature { margin: 4px 0 12px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; color: var(--cr-doux); font: inherit; font-size: 0.88rem; white-space: pre-wrap; }
+.oa-mail-pieces { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin: 8px 0 12px; }
+.oa-mail-fichier { font-size: 0.92rem; }
+.oa-modeles { display: flex; flex-direction: column; gap: 12px; }
+.oa-modele { border: 1px solid var(--cr-bord); border-radius: 10px; padding: 12px; }
+.oa-modele textarea { width: 100%; font: inherit; }
+.oa-mail input, .oa-mail select, .oa-mail textarea, .oa-modele input, .oa-modele textarea { font-weight: 400; }

@@ -1,5 +1,8 @@
 // Paramètres → Honoraires (barème des devis) et Automatisations (tâches).
+import { useEffect, useState } from "react";
+import { appelApi } from "./apiHistorique.js";
 import { lieux } from "./lieux.js";
+import { CHAMPS_MODELES } from "./messagerie.js";
 import { AUTOMATISATIONS, BAREME_PAR_DEFAUT, automatisations, bareme } from "./gestion.js";
 
 const PRIX_SEMESTRE = [
@@ -164,6 +167,199 @@ export function ReglagesLieux({ cabinet, onCabinetChange }) {
           </label>
         </div>
       ))}
+    </section>
+  );
+}
+
+const CATEGORIES = ["Devis", "Compte rendu", "Rendez-vous", "Courrier", "Autre"];
+
+// Paramètres → Messagerie : compte Gmail du cabinet (réglages rangés dans le coffre chiffré),
+// signature, liens de prise de RDV et modèles d'objet / de message.
+export function ReglagesMessagerie({ cabinet }) {
+  const [m, setM] = useState(null);
+  const [motDePasse, setMotDePasse] = useState("");
+  const [etat, setEtat] = useState({ enCours: false, erreur: "", ok: "", verrouille: false });
+
+  async function charger() {
+    try {
+      const { messagerie } = await appelApi("/patients/messagerie");
+      setM({ ...messagerie, adresse: messagerie.adresse || "orthochesnay@gmail.com" });
+      setEtat((e) => ({ ...e, verrouille: false }));
+    } catch (err) {
+      setEtat((e) => ({
+        ...e,
+        verrouille: err.statut === 423 || err.statut === 404,
+        erreur: err.statut === 423 || err.statut === 404 ? "" : err.message,
+      }));
+    }
+  }
+  useEffect(() => {
+    charger();
+  }, []);
+
+  async function enregistrer() {
+    setEtat({ ...etat, enCours: true, erreur: "", ok: "" });
+    try {
+      const { messagerie } = await appelApi("/patients/messagerie", { messagerie: { ...m, motDePasse } });
+      setM(messagerie);
+      setMotDePasse("");
+      setEtat({
+        ...etat,
+        enCours: false,
+        erreur: "",
+        ok: motDePasse ? "Connexion à Gmail réussie, réglages enregistrés." : "Réglages enregistrés.",
+      });
+    } catch (err) {
+      setEtat({ ...etat, enCours: false, erreur: err.message, ok: "" });
+    }
+  }
+  const majModele = (i, modif) => setM({ ...m, modeles: m.modeles.map((x, j) => (j === i ? { ...x, ...modif } : x)) });
+
+  return (
+    <section className="cr-carte">
+      <h2>Messagerie (Gmail)</h2>
+      {etat.verrouille && (
+        <p className="cr-aide">
+          Déverrouillez les dossiers patients (page Patients) pour régler la messagerie : ses réglages sont rangés dans
+          le coffre chiffré.{" "}
+          <button type="button" className="cr-lien" onClick={charger}>
+            Réessayer
+          </button>
+        </p>
+      )}
+      {m && (
+        <>
+          <details className="cr-aide">
+            <summary>Comment obtenir le mot de passe d'application Gmail ?</summary>
+            <ol>
+              <li>Connectez-vous au compte Gmail du cabinet, puis ouvrez myaccount.google.com → Sécurité.</li>
+              <li>Activez la « Validation en deux étapes » si ce n'est pas déjà fait.</li>
+              <li>Cherchez « Mots de passe des applications », créez-en un nommé « OrthoAI ».</li>
+              <li>
+                Copiez les 16 lettres affichées et collez-les ci-dessous (ce n'est pas le mot de passe habituel du
+                compte).
+              </li>
+            </ol>
+            Il est conservé chiffré sur le serveur du cabinet et n'est jamais réaffiché. Ne le communiquez à personne.
+          </details>
+          <div className="cr-champs-ligne">
+            <label>
+              Adresse Gmail
+              <input type="email" value={m.adresse} onChange={(e) => setM({ ...m, adresse: e.target.value })} />
+            </label>
+            <label>
+              Nom affiché
+              <input
+                value={m.nom}
+                placeholder={cabinet.praticien || "Cabinet d'orthodontie"}
+                onChange={(e) => setM({ ...m, nom: e.target.value })}
+              />
+            </label>
+            <label>
+              Mot de passe d'application
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={motDePasse}
+                placeholder={m.motDePasseEnregistre ? "Enregistré (laisser vide pour le garder)" : "16 lettres"}
+                onChange={(e) => setMotDePasse(e.target.value)}
+              />
+            </label>
+          </div>
+          <label className="cr-bloc">
+            Signature (ajoutée à la fin de chaque message)
+            <textarea rows={4} value={m.signature} onChange={(e) => setM({ ...m, signature: e.target.value })} />
+          </label>
+          <div className="cr-champs-ligne">
+            {lieux(cabinet).map((l) => (
+              <label key={l.id}>
+                Lien de prise de RDV — {l.court || l.nom}
+                <input
+                  value={m.liensRdv?.[l.id] || ""}
+                  placeholder="https://www.doctolib.fr/…"
+                  onChange={(e) => setM({ ...m, liensRdv: { ...m.liensRdv, [l.id]: e.target.value } })}
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="cr-titre-section">
+            <h3>Modèles de messages</h3>
+            <button
+              type="button"
+              className="secondaire"
+              onClick={() =>
+                setM({
+                  ...m,
+                  modeles: [
+                    ...m.modeles,
+                    {
+                      id: `modele-${Date.now()}`,
+                      categorie: "Autre",
+                      nom: "Nouveau modèle",
+                      objet: "",
+                      corps: "Bonjour,\n\n",
+                    },
+                  ],
+                })
+              }
+            >
+              + Modèle
+            </button>
+          </div>
+          <p className="cr-aide">
+            Champs remplacés à l'envoi : {CHAMPS_MODELES.map(([c, l]) => `${c} (${l.toLowerCase()})`).join(", ")}.
+          </p>
+          <div className="oa-modeles">
+            {m.modeles.map((modele, i) => (
+              <details key={modele.id} className="oa-modele">
+                <summary>
+                  <b>{modele.categorie}</b> · {modele.nom || "Sans nom"}
+                </summary>
+                <div className="cr-champs-ligne">
+                  <label>
+                    Catégorie
+                    <select value={modele.categorie} onChange={(e) => majModele(i, { categorie: e.target.value })}>
+                      {CATEGORIES.map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Nom
+                    <input value={modele.nom} onChange={(e) => majModele(i, { nom: e.target.value })} />
+                  </label>
+                </div>
+                <label className="cr-bloc">
+                  Objet
+                  <input value={modele.objet} onChange={(e) => majModele(i, { objet: e.target.value })} />
+                </label>
+                <label className="cr-bloc">
+                  Message
+                  <textarea rows={8} value={modele.corps} onChange={(e) => majModele(i, { corps: e.target.value })} />
+                </label>
+                <button
+                  type="button"
+                  className="cr-lien"
+                  onClick={() =>
+                    window.confirm(`Supprimer le modèle « ${modele.nom} » ?`) &&
+                    setM({ ...m, modeles: m.modeles.filter((_, j) => j !== i) })
+                  }
+                >
+                  Supprimer ce modèle
+                </button>
+              </details>
+            ))}
+          </div>
+          {etat.erreur && <p className="cr-alerte">{etat.erreur}</p>}
+          {etat.ok && <p className="cr-ok">{etat.ok}</p>}
+          <div className="cr-actions">
+            <button type="button" className="principal" disabled={etat.enCours} onClick={enregistrer}>
+              {etat.enCours ? (motDePasse ? "Connexion à Gmail…" : "Enregistrement…") : "Enregistrer la messagerie"}
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }

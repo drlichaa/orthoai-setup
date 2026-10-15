@@ -4,6 +4,7 @@
 import { app, BrowserWindow, dialog, Menu, powerSaveBlocker, session, shell, systemPreferences } from "electron";
 import { join } from "node:path";
 import { demarrerServeur } from "../server/app.js";
+import { creerGenerateurPdf } from "./pdf.js";
 import { FICHIER_CONFIG } from "../server/chemins.js";
 import { arreterWhisper } from "../server/whisper.js";
 
@@ -96,7 +97,12 @@ if (!app.requestSingleInstanceLock()) {
     autoriserMicro();
     creerMenu();
     try {
-      await demarrerServeur({ port: PORT, dossierStatique: join(app.getAppPath(), "dist"), fichierConfig: FICHIER_CONFIG });
+      await demarrerServeur({
+        port: PORT,
+        dossierStatique: join(app.getAppPath(), "dist"),
+        fichierConfig: FICHIER_CONFIG,
+        genererPdf: creerGenerateurPdf(`http://127.0.0.1:${PORT}`),
+      });
     } catch (err) {
       const message =
         err.code === "EADDRINUSE"

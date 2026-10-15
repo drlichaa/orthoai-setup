@@ -115,6 +115,16 @@ function transporteur(m) {
       ),
       { statut: 400 },
     );
+  // Tests automatiques uniquement : faux serveur local, jamais Gmail.
+  const test = /^(127\.0\.0\.1|localhost):(\d+)$/.exec(process.env.ORTHOAI_SMTP_TEST || "");
+  if (test)
+    return nodemailer.createTransport({
+      host: test[1],
+      port: Number(test[2]),
+      secure: false,
+      ignoreTLS: true,
+      auth: { user: m.adresse, pass: m.motDePasse },
+    });
   return nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,

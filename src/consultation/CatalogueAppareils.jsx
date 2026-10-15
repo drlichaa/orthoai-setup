@@ -1,6 +1,6 @@
 // Réglages du cabinet et catalogue des appareils avec leurs textes pré-enregistrés.
 import CleApi from "./CleApi.jsx";
-import ReglagesGestion, { ReglagesLieux } from "./ReglagesGestion.jsx";
+import ReglagesGestion, { ReglagesLieux, ReglagesMessagerie } from "./ReglagesGestion.jsx";
 import { OPERATIONS, SCENARIOS_PAR_DEFAUT } from "./scenarios.js";
 
 function identifiant(nom, existants) {
@@ -289,6 +289,7 @@ export default function CatalogueAppareils({
       <ReglagesLieux cabinet={cabinet} onCabinetChange={onCabinetChange} />
 
       <ReglagesGestion cabinet={cabinet} onCabinetChange={onCabinetChange} />
+      <ReglagesMessagerie cabinet={cabinet} />
 
       <EditeurScenarios
         scenarios={cabinet.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT}

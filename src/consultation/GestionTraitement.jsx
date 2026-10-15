@@ -3,7 +3,9 @@
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { useState } from "react";
 import { DepDocument, DevisDocument } from "./DocumentsGestion.jsx";
+import EnvoiMail from "./EnvoiMail.jsx";
 import FriseTraitement from "./FriseTraitement.jsx";
+import { nomDocument } from "./messagerie.js";
 import { formaterDate } from "./format.js";
 import {
   DEP_DIAGNOSTIC,
@@ -212,29 +214,9 @@ function NouveauDevis({ patient, cabinet, datePremiere, onCree, onAnnuler }) {
   );
 }
 
-function texteMail(devis, patient, cabinet) {
-  const t = totauxDevis(devis.lignes);
-  return [
-    "Bonjour,",
-    "",
-    `Veuillez trouver ci-joint le devis de traitement orthodontique de ${patient.prenom} ${patient.nom?.toUpperCase()}.`,
-    "",
-    ...devis.lignes.map((l) => `- ${l.libelle} : ${euros(l.honoraires)}`),
-    "",
-    `Total des honoraires : ${euros(t.honoraires)}`,
-    devis.regime === "hn"
-      ? "Ce traitement n'est pas pris en charge par l'Assurance maladie (hors nomenclature)."
-      : `Remboursement Assurance maladie : ${euros(t.rembourse)} — reste avant mutuelle : ${euros(t.reste)}.`,
-    `Devis valable ${devis.validiteMois || 6} mois.`,
-    "",
-    "Nous restons à votre disposition pour toute question.",
-    "",
-    cabinet.praticien || "",
-  ].join("\n");
-}
-
 function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer }) {
   const [creation, setCreation] = useState(false);
+  const [envoi, setEnvoi] = useState(null);
   const liste = g.devis || [];
 
   function valider(devis) {
@@ -266,14 +248,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
     );
   }
 
-  function envoyer(devis) {
-    const sujet = `Devis de traitement orthodontique — ${patient.prenom} ${patient.nom?.toUpperCase()}`;
-    window.alert(
-      "Votre messagerie va s'ouvrir avec le texte du devis. Joignez le devis en PDF : bouton « Imprimer / PDF », puis « Enregistrer au format PDF ».",
-    );
-    window.location.href = `mailto:${encodeURIComponent(patient.email || "")}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(texteMail(devis, patient, cabinet))}`;
-    majGestion({ devis: liste.map((d) => (d.id === devis.id ? { ...d, envoye: aujourdhui() } : d)) });
-  }
+  const MODELE_PAR_TRAITEMENT = { metal: "devis-metal", ceramique: "devis-ceramique", aligneurs: "devis-gouttieres" };
 
   return (
     <section className="cr-carte">
@@ -327,7 +302,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
                   >
                     Imprimer / PDF
                   </button>
-                  <button type="button" className="secondaire" onClick={() => envoyer(d)}>
+                  <button type="button" className="secondaire" onClick={() => setEnvoi(d)}>
                     E-mail
                   </button>
                   {!d.valide && (
@@ -350,6 +325,23 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
             );
           })}
         </ul>
+      )}
+      {envoi && (
+        <EnvoiMail
+          patient={patient}
+          cabinet={cabinet}
+          categorie="Devis"
+          modeleInitial={MODELE_PAR_TRAITEMENT[envoi.traitement]}
+          devisId={envoi.id}
+          documents={[
+            {
+              nom: nomDocument(patient, "DevisConventionnel"),
+              element: <DevisDocument devis={envoi} patient={patient} cabinet={cabinet} />,
+            },
+          ]}
+          onFermer={() => setEnvoi(null)}
+          onEnvoye={({ gestion }) => gestion && majGestion({ devis: gestion.devis, mails: gestion.mails })}
+        />
       )}
     </section>
   );

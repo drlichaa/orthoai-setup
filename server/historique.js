@@ -870,7 +870,13 @@ export function creerHistorique(fichier) {
       const suivante = nettoyerMessagerie(brut, messagerie);
       const identifiantsChanges =
         suivante.adresse !== messagerie.adresse || suivante.motDePasse !== messagerie.motDePasse;
-      if (identifiantsChanges && suivante.adresse && suivante.motDePasse) await verifierMessagerie(suivante);
+      if (identifiantsChanges && suivante.adresse && suivante.motDePasse) {
+        try {
+          await verifierMessagerie(suivante);
+        } catch (err) {
+          throw new ErreurHistorique(err.statut || 400, err.message);
+        }
+      }
       exiger();
       messagerie = suivante;
       sauvegarder();
@@ -904,7 +910,9 @@ export function creerHistorique(fichier) {
           ...g,
           mails: [...(g.mails || []), trace].slice(-200),
           devis: brut.devisId
-            ? (g.devis || []).map((d) => (d.id === brut.devisId ? { ...d, envoye: trace.date.slice(0, 10) } : d))
+            ? (g.devis || []).map((d) =>
+                d.id === brut.devisId ? { ...d, envoye: new Date().toLocaleDateString("sv-SE") } : d,
+              )
             : g.devis,
         });
         patient.modifieLe = trace.date;
