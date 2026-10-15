@@ -511,3 +511,14 @@ button.oa-chiffre:hover { border-color: #c8d6f2; }
 .oa-copier-bloc { margin-bottom: 14px; }
 .oa-copier-bloc h3 { margin: 0; }
 .oa-copier-bloc textarea { width: 100%; font-family: inherit; font-size: 0.95rem; line-height: 1.5; margin-top: 6px; }
+
+/* Choix du cabinet (Le Chesnay / Herblay) */
+.oa-lieux { display: flex; gap: 4px; padding: 4px; margin: 0 4px 16px; background: rgba(255, 255, 255, 0.07); border-radius: 10px; }
+.oa-lieux button { flex: 1; border: 0; background: none; color: #c9d4e8; font-size: 0.78rem; font-weight: 600; padding: 7px 4px; border-radius: 7px; white-space: nowrap; }
+.oa-lieux button:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.oa-lieux button.actif { background: #fff; color: #13284d; }
+.oa-pastille-lieu { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #eef2f7; color: #475467; border: 1px solid #d0d5dd; }
+.oa-pastille-lieu.herblay { background: #fdf2fa; color: #9e165f; border-color: #fcceee; }
+.oa-pastille-lieu.chesnay { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
+select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
+@media (max-width: 900px) { .oa-lieux { margin: 0 8px 0 0; } }

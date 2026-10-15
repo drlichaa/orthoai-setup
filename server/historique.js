@@ -242,6 +242,7 @@ export function creerHistorique(fichier) {
       modifieLe: f.modifieLe,
       patient: f.patient,
       patientId: f.patientId || null,
+      lieu: patients.find((p) => p.id === f.patientId)?.lieu || f.patient?.lieu || "",
       motif: (f.rapport?.motif || "").slice(0, 160),
     };
   }
@@ -253,6 +254,7 @@ export function creerHistorique(fichier) {
       prenom: p.prenom,
       naissance: p.naissance,
       code: p.code || "",
+      lieu: p.lieu || "",
       alerte: Boolean(p.alerte),
       type: p.type,
       statut: p.statut,
@@ -281,6 +283,8 @@ export function creerHistorique(fichier) {
       code: texte(brut.code, 20),
       dossier: texte(brut.dossier, 20),
       sexe: texte(brut.sexe, 1),
+      // Cabinet où le patient est suivi (Le Chesnay, Herblay…).
+      lieu: texte(brut.lieu, 50),
       telephone: texte(brut.telephone, 100),
       telephone2: texte(brut.telephone2, 100),
       portable: texte(brut.portable, 100),
@@ -358,7 +362,11 @@ export function creerHistorique(fichier) {
   // Rattache un compte rendu à un dossier patient (même nom, prénom et date
   // de naissance), ou crée le dossier avec le diagnostic et le plan résumés.
   function rattacherPatient(patientId, identite, resumeClinique) {
-    if (patientId && patients.some((p) => p.id === patientId)) return patientId;
+    const lie = patientId && patients.find((p) => p.id === patientId);
+    if (lie) {
+      if (!lie.lieu && identite?.lieu) lie.lieu = texte(identite.lieu, 50);
+      return patientId;
+    }
     const identifiant = (p) => [p.nom, p.prenom, p.naissance].map(sansAccents).join("|");
     // Les dossiers sont enregistrés nom en majuscules : même mise en forme pour comparer.
     identite = { ...identite, nom: formaterNom(identite?.nom), prenom: formaterPrenom(identite?.prenom) };
@@ -366,6 +374,7 @@ export function creerHistorique(fichier) {
     const existant = patients.find((p) => identifiant(p) === identifiant(identite));
     if (existant) {
       if (!existant.sexe && ["F", "M"].includes(identite.sexe)) existant.sexe = identite.sexe;
+      if (!existant.lieu && identite.lieu) existant.lieu = texte(identite.lieu, 50);
       return existant.id;
     }
     const nouveau = nettoyerPatient(
@@ -374,6 +383,7 @@ export function creerHistorique(fichier) {
         prenom: identite.prenom,
         naissance: identite.naissance,
         sexe: ["F", "M"].includes(identite.sexe) ? identite.sexe : "",
+        lieu: identite.lieu,
         statut: reglages.statuts[0]?.nom || "",
         diagnostic: resumeClinique?.diagnostic,
         plan: resumeClinique?.plan,

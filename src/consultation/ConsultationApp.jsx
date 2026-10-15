@@ -12,6 +12,7 @@ import Navigation from "./Navigation.jsx";
 import TableauDeBord from "./TableauDeBord.jsx";
 import Taches, { Laboratoire } from "./Taches.jsx";
 import ResumeACopier from "./ResumeACopier.jsx";
+import { cabinetPour, lieuMemorise, lieux, memoriserLieu } from "./lieux.js";
 import { appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
 import { formaterNom, formaterPrenom } from "./format.js";
@@ -218,7 +219,15 @@ function EtatServeur({ sante }) {
 export default function ConsultationApp() {
   const [appareils, setAppareils] = useState(chargerAppareils);
   const [cabinet, setCabinet] = useState(() => ({ ...CABINET_VIDE, ...lireStockage(CLE_CABINET, {}) }));
-  const [patient, setPatient] = useState({ nom: "", prenom: "", naissance: "", date: aujourdhui() });
+  // Cabinet affiché (« » = tous) : trie les patients et sert de cabinet par défaut.
+  const [lieuActif, setLieuActif] = useState(lieuMemorise);
+  const [patient, setPatient] = useState(() => ({
+    nom: "",
+    prenom: "",
+    naissance: "",
+    date: aujourdhui(),
+    lieu: lieuMemorise(),
+  }));
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
   const [rapport, setRapport] = useState(null);
@@ -231,6 +240,12 @@ export default function ConsultationApp() {
   const [vue, setVue] = useState(vueDepuisAdresse);
   // Dossier patient rattaché à la consultation, et dossier affiché dans « Patients ».
   const [patientId, setPatientId] = useState(null);
+  const changerLieu = (id) => {
+    memoriserLieu(id);
+    setLieuActif(id);
+    // Consultation pas encore commencée : elle suit le cabinet choisi.
+    if (id && !patientId && !rapport) setPatient((p) => ({ ...p, lieu: id }));
+  };
   const [patientSelectionne, setPatientSelectionne] = useState(null);
   // Onglet du dossier à ouvrir (depuis les tâches et alertes).
   const [ongletPatient, setOngletPatient] = useState("clinique");
@@ -449,7 +464,7 @@ export default function ConsultationApp() {
   function viderConsultation(identite = {}, idPatient = null) {
     micro.arreter();
     micro.oublierEchecs();
-    setPatient({ nom: "", prenom: "", naissance: "", ...identite, date: aujourdhui() });
+    setPatient({ nom: "", prenom: "", naissance: "", lieu: lieuActif, ...identite, date: aujourdhui() });
     setPatientId(idPatient);
     setTranscription("");
     setNotes("");
@@ -478,7 +493,10 @@ export default function ConsultationApp() {
       !window.confirm("La consultation en cours n'est pas enregistrée. L'abandonner pour commencer celle-ci ?")
     )
       return;
-    viderConsultation({ nom: p.nom, prenom: p.prenom, naissance: p.naissance, sexe: p.sexe || "" }, p.id);
+    viderConsultation(
+      { nom: p.nom, prenom: p.prenom, naissance: p.naissance, sexe: p.sexe || "", lieu: p.lieu || lieuActif },
+      p.id,
+    );
     aller("consultation");
   }
 
@@ -503,6 +521,7 @@ export default function ConsultationApp() {
     contenu = (
       <TableauDeBord
         cabinet={cabinet}
+        lieuActif={lieuActif}
         onAller={(v) => {
           if (v === "patients") setPatientSelectionne(null);
           aller(v);
@@ -518,6 +537,7 @@ export default function ConsultationApp() {
   } else if (vue === "patients") {
     contenu = (
       <Patients
+        lieuActif={lieuActif}
         patientId={patientSelectionne}
         onglet={ongletPatient}
         onSelection={(id) => {
@@ -531,11 +551,11 @@ export default function ConsultationApp() {
       />
     );
   } else if (vue === "taches") {
-    contenu = <Taches cabinet={cabinet} onOuvrirPatient={ouvrirPatient} />;
+    contenu = <Taches cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} />;
   } else if (vue === "labo") {
-    contenu = <Laboratoire onOuvrirPatient={ouvrirPatient} />;
+    contenu = <Laboratoire lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} />;
   } else if (vue === "historique") {
-    contenu = <Historique onOuvrir={ouvrirFiche} />;
+    contenu = <Historique lieuActif={lieuActif} cabinet={cabinet} onOuvrir={ouvrirFiche} />;
   } else if (vue === "catalogue") {
     contenu = (
       <CatalogueAppareils
@@ -612,6 +632,21 @@ export default function ConsultationApp() {
                   <option value="">—</option>
                   <option value="F">Féminin</option>
                   <option value="M">Masculin</option>
+                </select>
+              </label>
+              <label>
+                Cabinet
+                <select
+                  value={patient.lieu || ""}
+                  onChange={(e) => setPatient({ ...patient, lieu: e.target.value })}
+                  className={patient.lieu ? undefined : "oa-a-choisir"}
+                >
+                  <option value="">À choisir…</option>
+                  {lieux(cabinet).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nom}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -890,14 +925,19 @@ export default function ConsultationApp() {
 
         {rapport && (
           <div className={courrierImprime === null ? undefined : "no-print"}>
-            <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />
+            <CompteRendu
+              rapport={rapport}
+              patient={patient}
+              cabinet={cabinetPour(cabinet, patient.lieu)}
+              appareils={appareilsAffiches}
+            />
           </div>
         )}
         {rapport?.courriers[courrierImprime] && (
           <CourrierDocument
             courrier={rapport.courriers[courrierImprime]}
             patient={patient}
-            cabinet={cabinet}
+            cabinet={cabinetPour(cabinet, patient.lieu)}
             resume={resumeClinique(rapport, appareilsAffiches)}
           />
         )}
@@ -910,6 +950,8 @@ export default function ConsultationApp() {
       <Navigation
         vue={vue}
         cabinet={cabinet}
+        lieuActif={lieuActif}
+        onLieu={changerLieu}
         onAller={(v) => {
           if (v === "patients") setPatientSelectionne(null);
           aller(v);

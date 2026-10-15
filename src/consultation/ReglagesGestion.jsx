@@ -1,4 +1,5 @@
 // Paramètres → Honoraires (barème des devis) et Automatisations (tâches).
+import { lieux } from "./lieux.js";
 import { AUTOMATISATIONS, BAREME_PAR_DEFAUT, automatisations, bareme } from "./gestion.js";
 
 const PRIX_SEMESTRE = [
@@ -122,5 +123,47 @@ export default function ReglagesGestion({ cabinet, onCabinetChange }) {
         ))}
       </section>
     </>
+  );
+}
+
+// Paramètres → Cabinets : nom et en-tête propres au Chesnay et à Herblay.
+export function ReglagesLieux({ cabinet, onCabinetChange }) {
+  const liste = lieux(cabinet);
+  const maj = (id, modif) =>
+    onCabinetChange({ ...cabinet, lieux: liste.map((l) => (l.id === id ? { ...l, ...modif } : l)) });
+  return (
+    <section className="cr-carte">
+      <h2>Cabinets</h2>
+      <p className="cr-aide">
+        Chaque patient est rattaché à un cabinet. Son adresse et son téléphone remplacent ceux de l'en-tête sur les
+        courriers, comptes rendus, devis et DEP du patient (laisser vide pour garder l'en-tête général).
+      </p>
+      {liste.map((l) => (
+        <div key={l.id} className="cr-appareil-edition">
+          <div className="cr-champs-ligne">
+            <label>
+              Nom
+              <input value={l.nom} onChange={(e) => maj(l.id, { nom: e.target.value })} />
+            </label>
+            <label>
+              Nom court (menu)
+              <input value={l.court} onChange={(e) => maj(l.id, { court: e.target.value })} />
+            </label>
+            <label>
+              Téléphone
+              <input value={l.telephone || ""} onChange={(e) => maj(l.id, { telephone: e.target.value })} />
+            </label>
+          </div>
+          <label className="cr-bloc">
+            Adresse (en-tête des documents)
+            <textarea
+              rows={2}
+              value={l.coordonnees || ""}
+              onChange={(e) => maj(l.id, { coordonnees: e.target.value })}
+            />
+          </label>
+        </div>
+      ))}
+    </section>
   );
 }

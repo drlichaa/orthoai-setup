@@ -5,6 +5,7 @@ import { appelApi } from "./apiHistorique.js";
 import { formaterDate } from "./format.js";
 import { TYPES_ECHEANCES, automatisations, aujourdhui, echeancesPatient, identifiantUnique } from "./gestion.js";
 import { Verrou } from "./Historique.jsx";
+import { dansLieu } from "./lieux.js";
 
 async function lireGestion() {
   try {
@@ -30,11 +31,12 @@ function useGestion() {
 
 const nom = (p) => [p?.nom?.toUpperCase(), p?.prenom].filter(Boolean).join(" ");
 
-// Échéances actives (automatisations activées, non écartées).
-function echeances(donnees, cabinet) {
+// Échéances actives (automatisations activées, non écartées) du cabinet affiché.
+function echeances(donnees, cabinet, lieuActif = "") {
   const actives = automatisations(cabinet);
   const ignorees = new Set(donnees.ignorees || []);
   return donnees.patients
+    .filter((p) => dansLieu(lieuActif, p.lieu))
     .flatMap((p) => echeancesPatient(p).map((e) => ({ ...e, patient: p })))
     .filter((e) => actives[e.type] && !ignorees.has(e.cle))
     .sort((a, b) => a.date.localeCompare(b.date));
@@ -157,7 +159,7 @@ function PageVerrouillee({ donnees, titre, recharger }) {
   );
 }
 
-export default function Taches({ cabinet, onOuvrirPatient }) {
+export default function Taches({ cabinet, lieuActif = "", onOuvrirPatient }) {
   const [donnees, setDonnees, recharger] = useGestion();
   const [vue, setVue] = useState("afaire");
   if (!donnees || donnees.verrouille || donnees.erreur)
@@ -165,13 +167,17 @@ export default function Taches({ cabinet, onOuvrirPatient }) {
 
   const auj = aujourdhui();
   const taches = donnees.taches || [];
-  const auto = echeances(donnees, cabinet);
+  const auto = echeances(donnees, cabinet, lieuActif);
   const patient = (id) => donnees.patients.find((p) => p.id === id);
   async function enregistrer(suivantes) {
     setDonnees({ ...donnees, ...(await appelApi("/patients/gestion", { taches: suivantes })) });
   }
-  const ouvertes = taches.filter((t) => !t.fait).sort((a, b) => (a.echeance || "9").localeCompare(b.echeance || "9"));
-  const finies = taches.filter((t) => t.fait).sort((a, b) => b.fait.localeCompare(a.fait));
+  // Tâche d'un patient de l'autre cabinet : masquée ; tâche générale : toujours visible.
+  const duLieu = (t) => !t.patientId || !lieuActif || dansLieu(lieuActif, patient(t.patientId)?.lieu);
+  const ouvertes = taches
+    .filter((t) => !t.fait && duLieu(t))
+    .sort((a, b) => (a.echeance || "9").localeCompare(b.echeance || "9"));
+  const finies = taches.filter((t) => t.fait && duLieu(t)).sort((a, b) => b.fait.localeCompare(a.fait));
 
   return (
     <div className="cr-app">
@@ -327,13 +333,15 @@ export default function Taches({ cabinet, onOuvrirPatient }) {
   );
 }
 
-export function Laboratoire({ onOuvrirPatient }) {
+export function Laboratoire({ lieuActif = "", onOuvrirPatient }) {
   const [donnees, , recharger] = useGestion();
   const [vue, setVue] = useState("attente");
   if (!donnees || donnees.verrouille || donnees.erreur)
     return <PageVerrouillee donnees={donnees} titre="Laboratoire" recharger={recharger} />;
   const auj = aujourdhui();
-  const commandes = donnees.patients.flatMap((p) => (p.gestion?.labo || []).map((l) => ({ ...l, patient: p })));
+  const commandes = donnees.patients
+    .filter((p) => dansLieu(lieuActif, p.lieu))
+    .flatMap((p) => (p.gestion?.labo || []).map((l) => ({ ...l, patient: p })));
   const enAttente = commandes.filter((l) => !l.recu);
   const affichees = (vue === "attente" ? enAttente : commandes.filter((l) => l.recu)).sort((a, b) =>
     (a.prevu || "9").localeCompare(b.prevu || "9"),
@@ -429,11 +437,11 @@ export function Laboratoire({ onOuvrirPatient }) {
 }
 
 // Encart du tableau de bord : échéances par catégorie.
-export function AlertesSuivi({ cabinet, onOuvrirPatient, onAller }) {
+export function AlertesSuivi({ cabinet, lieuActif = "", onOuvrirPatient, onAller }) {
   const [donnees] = useGestion();
   const [type, setType] = useState("facturation");
   if (!donnees || donnees.verrouille || donnees.erreur) return null;
-  const auto = echeances(donnees, cabinet);
+  const auto = echeances(donnees, cabinet, lieuActif);
   const types = Object.keys(TYPES_ECHEANCES).filter((t) => auto.some((e) => e.type === t));
   const actif = types.includes(type) ? type : types[0];
   const taches = (donnees.taches || []).filter((t) => !t.fait);

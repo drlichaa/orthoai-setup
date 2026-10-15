@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { appelApi, appelHistorique } from "./apiHistorique.js";
 import FichePatient from "./FichePatient.jsx";
 import { Verrou } from "./Historique.jsx";
+import { dansLieu, lieux, nomLieu } from "./lieux.js";
 import { age, classeStatut, formaterDate, formaterNom, formaterPrenom } from "./format.js";
 
 // Dossiers patients, dans le même coffre chiffré que l'historique.
@@ -42,8 +43,8 @@ async function lirePatients() {
 
 const MISE_EN_FORME = { nom: formaterNom, prenom: formaterPrenom };
 
-function NouveauPatient({ reglages, onCree, onAnnuler }) {
-  const [champs, setChamps] = useState({ nom: "", prenom: "", naissance: "", email: "" });
+function NouveauPatient({ reglages, cabinet, lieuActif, onCree, onAnnuler }) {
+  const [champs, setChamps] = useState({ nom: "", prenom: "", naissance: "", email: "", lieu: lieuActif || "" });
   const [erreur, setErreur] = useState("");
 
   async function creer(e) {
@@ -78,6 +79,21 @@ function NouveauPatient({ reglages, onCree, onAnnuler }) {
             />
           </label>
         ))}
+        <label>
+          Cabinet
+          <select
+            value={champs.lieu}
+            className={champs.lieu ? undefined : "oa-a-choisir"}
+            onChange={(e) => setChamps({ ...champs, lieu: e.target.value })}
+          >
+            <option value="">À choisir…</option>
+            {lieux(cabinet).map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nom}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="cr-actions cr-verrou-actions">
         <button type="submit" className="principal" disabled={!champs.nom.trim() && !champs.prenom.trim()}>
@@ -187,6 +203,7 @@ function Reglages({ reglages, patients, onChange }) {
 
 export default function Patients({
   patientId,
+  lieuActif = "",
   onglet,
   onSelection,
   onOuvrirCompteRendu,
@@ -199,6 +216,8 @@ export default function Patients({
   const [recherche, setRecherche] = useState("");
   const [filtre, setFiltre] = useState("Tous");
   const [mode, setMode] = useState("liste"); // liste | nouveau | reglages
+  // Montre les dossiers sans cabinet, à rattacher au Chesnay ou à Herblay.
+  const [sansLieu, setSansLieu] = useState(false);
 
   async function charger() {
     setDonnees(await lirePatients());
@@ -278,7 +297,9 @@ export default function Patients({
   // Filtres : les types de traitement réellement utilisés.
   const filtres = ["Tous", ...new Set(patients.map((p) => p.type).filter(Boolean))];
   const termes = sansAccents(recherche).split(/\s+/).filter(Boolean);
-  const visibles = patients
+  const aAttribuer = patients.filter((p) => !p.lieu);
+  const duLieu = sansLieu ? aAttribuer : patients.filter((p) => dansLieu(lieuActif, p.lieu));
+  const visibles = duLieu
     .filter((p) => filtre === "Tous" || p.type === filtre)
     .filter((p) => {
       const texte = sansAccents([p.nom, p.prenom, formaterDate(p.naissance), p.code].join(" "));
@@ -292,6 +313,8 @@ export default function Patients({
       {mode === "nouveau" && (
         <NouveauPatient
           reglages={reglages}
+          cabinet={cabinet}
+          lieuActif={lieuActif}
           onCree={(id) => {
             setMode("liste");
             onSelection(id);
@@ -311,6 +334,25 @@ export default function Patients({
             onChange={(e) => setRecherche(e.target.value)}
             aria-label="Rechercher un patient"
           />
+          {aAttribuer.length > 0 && (
+            <p className={sansLieu ? "cr-ok" : "cr-verifier"}>
+              {sansLieu ? (
+                <>
+                  Dossiers sans cabinet : ouvrez chacun pour choisir Le Chesnay ou Herblay (en haut du dossier).{" "}
+                  <button type="button" className="cr-lien" onClick={() => setSansLieu(false)}>
+                    Revenir à la liste
+                  </button>
+                </>
+              ) : (
+                <>
+                  {aAttribuer.length} dossier(s) sans cabinet{lieuActif ? " (masqués ici)" : ""}.{" "}
+                  <button type="button" className="cr-lien" onClick={() => setSansLieu(true)}>
+                    Les afficher pour les rattacher
+                  </button>
+                </>
+              )}
+            </p>
+          )}
           <div className="cr-filtres">
             {filtres.map((t) => (
               <button
@@ -319,7 +361,7 @@ export default function Patients({
                 className={t === filtre ? "cr-filtre actif" : "cr-filtre"}
                 onClick={() => setFiltre(t)}
               >
-                {t} ({t === "Tous" ? patients.length : patients.filter((p) => p.type === t).length})
+                {t} ({t === "Tous" ? duLieu.length : duLieu.filter((p) => p.type === t).length})
               </button>
             ))}
           </div>
@@ -346,6 +388,9 @@ export default function Patients({
                       </small>
                     </span>
                     <span className="cr-ligne-etiquettes">
+                      {!lieuActif && p.lieu && (
+                        <span className={`oa-pastille-lieu ${p.lieu}`}>{nomLieu(cabinet, p.lieu)}</span>
+                      )}
                       {p.type && <span className="cr-pastille c-type">{p.type}</span>}
                       {p.statut && <span className={classeStatut(reglages, p.statut)}>{p.statut}</span>}
                     </span>

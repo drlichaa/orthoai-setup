@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { lieux } from "./lieux.js";
 
 // Barre de navigation à gauche, commune à toutes les pages d'OrthoAI.
 
@@ -44,7 +45,7 @@ const ENTREES = [
   ["catalogue", "Paramètres", "parametres"],
 ];
 
-export default function Navigation({ vue, onAller, cabinet }) {
+export default function Navigation({ vue, onAller, cabinet, lieuActif, onLieu }) {
   const [distant, setDistant] = useState(false);
   useEffect(() => {
     fetch("/api/session")
@@ -74,6 +75,20 @@ export default function Navigation({ vue, onAller, cabinet }) {
           <strong>OrthoAI</strong>
           <span>{cabinet.cabinet || "Cabinet d'orthodontie"}</span>
         </div>
+      </div>
+
+      <div className="oa-lieux" role="group" aria-label="Cabinet affiché">
+        {[{ id: "", court: "Tous" }, ...lieux(cabinet)].map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            className={lieuActif === l.id ? "actif" : undefined}
+            aria-pressed={lieuActif === l.id}
+            onClick={() => onLieu(l.id)}
+          >
+            {l.court || l.nom}
+          </button>
+        ))}
       </div>
 
       <ul className="oa-menu">

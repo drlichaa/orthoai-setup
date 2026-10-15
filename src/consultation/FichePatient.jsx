@@ -6,6 +6,7 @@ import { appelApi, envoyerFichier, envoyerImage } from "./apiHistorique.js";
 import { SCENARIOS_PAR_DEFAUT, ligneSuivi } from "./scenarios.js";
 import GestionTraitement from "./GestionTraitement.jsx";
 import SuiviTraitement from "./SuiviTraitement.jsx";
+import { cabinetPour, lieux } from "./lieux.js";
 import SeriesImages, { PlancheDocument } from "./SeriesImages.jsx";
 import {
   STATUT_TRAITEMENT,
@@ -420,6 +421,8 @@ export default function FichePatient({
     </label>
   );
 
+  // En-tête des documents : adresse du cabinet où le patient est suivi.
+  const cabinetPatient = cabinetPour(cabinet, patient.lieu);
   const courrierAImprimer = courrierImprime === null ? null : patient.courriers[courrierImprime];
   const scenarios = cabinet?.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT;
   // Images hors séries (anciennes, radios annotées…) et sans les empreintes 3D.
@@ -465,6 +468,19 @@ export default function FichePatient({
               </p>
             </div>
             <div className="cr-identite-etat">
+              <select
+                className={patient.lieu ? `oa-pastille-lieu ${patient.lieu}` : "oa-pastille-lieu oa-a-choisir"}
+                value={patient.lieu || ""}
+                aria-label="Cabinet"
+                onChange={(e) => maj({ lieu: e.target.value }, { immediat: true })}
+              >
+                <option value="">Cabinet à choisir…</option>
+                {lieux(cabinet).map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nom}
+                  </option>
+                ))}
+              </select>
               {/* L'appareil (type de traitement) n'est demandé que pour un patient en traitement. */}
               {patient.statut === STATUT_TRAITEMENT && (
                 <select
@@ -925,7 +941,7 @@ export default function FichePatient({
             patient={patient}
             maj={maj}
             majGestion={majGestion}
-            cabinet={cabinet}
+            cabinet={cabinetPatient}
             datePremiere={
               (dossier?.comptesRendus || [])
                 .map((c) => c.patient?.date)
@@ -1052,7 +1068,7 @@ export default function FichePatient({
           serie={plancheImprimee}
           scenario={scenarios.find((x) => x.id === plancheImprimee.scenario)}
           patient={patient}
-          cabinet={cabinet}
+          cabinet={cabinetPatient}
         />
       )}
       {documentImprime}
@@ -1060,7 +1076,7 @@ export default function FichePatient({
         <CourrierDocument
           courrier={courrierAImprimer}
           patient={{ ...patient, date: courrierAImprimer.date || aujourdhui() }}
-          cabinet={cabinet}
+          cabinet={cabinetPatient}
           resume={{ diagnostic: lignes(patient.diagnostic), traitement: lignes(patient.plan) }}
         />
       )}

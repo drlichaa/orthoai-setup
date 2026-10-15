@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { appelHistorique } from "./apiHistorique.js";
+import { dansLieu, nomLieu } from "./lieux.js";
 
 // Historique des comptes rendus : chiffré et conservé sur cet ordinateur par
 // le serveur local, protégé par un mot de passe propre à cet ordinateur.
@@ -167,7 +168,7 @@ async function lireHistorique() {
   }
 }
 
-export default function Historique({ onOuvrir, onFermer }) {
+export default function Historique({ onOuvrir, onFermer, lieuActif = "", cabinet }) {
   const [etat, setEtat] = useState(null);
   const [fiches, setFiches] = useState([]);
   const [recherche, setRecherche] = useState("");
@@ -231,7 +232,8 @@ export default function Historique({ onOuvrir, onFermer }) {
   }
 
   const termes = sansAccents(recherche).split(/\s+/).filter(Boolean);
-  const visibles = fiches.filter((f) => {
+  const duLieu = fiches.filter((f) => dansLieu(lieuActif, f.lieu));
+  const visibles = duLieu.filter((f) => {
     const texte = sansAccents(
       [
         f.patient?.nom,
@@ -284,7 +286,8 @@ export default function Historique({ onOuvrir, onFermer }) {
           <section className="cr-carte">
             <div className="cr-titre-section">
               <h2>
-                {fiches.length} compte{fiches.length > 1 ? "s" : ""} rendu{fiches.length > 1 ? "s" : ""}
+                {duLieu.length} compte{duLieu.length > 1 ? "s" : ""} rendu{duLieu.length > 1 ? "s" : ""}
+                {lieuActif && ` · ${nomLieu(cabinet, lieuActif)}`}
               </h2>
               <input
                 className="cr-recherche"

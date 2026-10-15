@@ -4,6 +4,7 @@ import { classeStatut, dateLongue, formaterDate } from "./format.js";
 import { Verrou } from "./Historique.jsx";
 import { Icone } from "./Navigation.jsx";
 import { AlertesSuivi } from "./Taches.jsx";
+import { dansLieu, lieux } from "./lieux.js";
 
 // Page d'accueil : actions rapides, patients par statut, alertes et derniers
 // comptes rendus.
@@ -31,6 +32,7 @@ function salutation() {
 
 export default function TableauDeBord({
   cabinet,
+  lieuActif = "",
   onAller,
   onOuvrirPatient,
   onOuvrirCompteRendu,
@@ -58,7 +60,9 @@ export default function TableauDeBord({
     ["historique", "Comptes rendus", "Retrouver un compte rendu", () => onAller("historique")],
   ];
 
-  const { patients = [], reglages, fiches = [] } = donnees || {};
+  const { reglages } = donnees || {};
+  const patients = (donnees?.patients || []).filter((p) => dansLieu(lieuActif, p.lieu));
+  const fiches = (donnees?.fiches || []).filter((f) => dansLieu(lieuActif, f.lieu));
   const parStatut = reglages
     ? reglages.statuts
         .map((s) => ({ ...s, nombre: patients.filter((p) => p.statut === s.nom).length }))
@@ -76,6 +80,7 @@ export default function TableauDeBord({
             {salutation()}
             {nomPraticien ? ` Dr ${nomPraticien}` : ""}
           </h1>
+          {lieuActif && <p className="oa-date">{lieux(cabinet).find((l) => l.id === lieuActif)?.nom}</p>}
         </div>
       </header>
 
@@ -128,7 +133,7 @@ export default function TableauDeBord({
             </div>
           </div>
 
-          <AlertesSuivi cabinet={cabinet} onOuvrirPatient={onOuvrirPatient} onAller={onAller} />
+          <AlertesSuivi cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={onOuvrirPatient} onAller={onAller} />
 
           <div className="oa-colonnes">
             <section className="cr-carte">
