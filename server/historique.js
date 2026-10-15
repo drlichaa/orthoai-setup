@@ -14,11 +14,13 @@ const DELAI_VERROUILLAGE_MS = 30 * 60 * 1000;
 export const LONGUEUR_MIN_MOT_DE_PASSE = 8;
 
 export const REGLAGES_PAR_DEFAUT = {
-  version: 2,
-  types: ["Interception", "Multi-attaches", "Aligneurs", "Disjoncteur", "Contention"],
+  version: 3,
+  types: ["Interception", "Multi-attaches", "Aligneurs", "Disjoncteur", "Contention", "OAM"],
   statuts: [
     { nom: "Première consultation", couleur: "blue" },
+    { nom: "Jamais vu", couleur: "grey" },
     { nom: "Devis envoyé", couleur: "orange" },
+    { nom: "Sans suite", couleur: "red" },
     { nom: "En attente (trop tôt)", couleur: "grey" },
     { nom: "En cours", couleur: "green" },
     { nom: "En traitement", couleur: "green" },
@@ -30,9 +32,10 @@ export const REGLAGES_PAR_DEFAUT = {
   ],
 };
 
-// Réglages enregistrés avant l'ajout de nouveaux statuts par défaut : les
-// statuts sont complétés et rangés dans l'ordre par défaut, en gardant les
-// couleurs choisies ; les statuts personnalisés restent à la fin.
+// Réglages enregistrés avant l'ajout de nouveaux statuts ou types par défaut :
+// les statuts sont complétés et rangés dans l'ordre par défaut, en gardant les
+// couleurs choisies ; les statuts personnalisés restent à la fin. Les types
+// manquants sont ajoutés à la suite.
 function completerReglages(reglages) {
   if (!reglages) return REGLAGES_PAR_DEFAUT;
   if (reglages.version >= REGLAGES_PAR_DEFAUT.version) return reglages;
@@ -41,7 +44,9 @@ function completerReglages(reglages) {
     ...REGLAGES_PAR_DEFAUT.statuts.map((d) => existants.find((s) => s.nom === d.nom) || d),
     ...existants.filter((s) => !REGLAGES_PAR_DEFAUT.statuts.some((d) => d.nom === s.nom)),
   ];
-  return { ...reglages, version: REGLAGES_PAR_DEFAUT.version, statuts };
+  const typesExistants = reglages.types || [];
+  const types = [...typesExistants, ...REGLAGES_PAR_DEFAUT.types.filter((t) => !typesExistants.includes(t))];
+  return { ...reglages, version: REGLAGES_PAR_DEFAUT.version, types, statuts };
 }
 
 // Données de gestion (devis, semestres, DEP, laboratoire, tâches…) : structure
@@ -701,15 +706,16 @@ export function creerHistorique(fichier) {
             patient.statut === patient.orthofast?.statutImporte ||
             (patient.orthofast && !patient.orthofast.statutImporte && patient.statut === statutParDefaut);
           if (deduit && statutNonModifie) patient.statut = deduit.statut;
-          if (deduit?.type && !patient.type) patient.type = deduit.type;
-          if (deduit) orthofast.statutImporte = deduit.statut;
+          const typeNonModifie = !patient.type || patient.type === patient.orthofast?.typeImporte;
+          if (deduit?.type && typeNonModifie) patient.type = deduit.type;
+          if (deduit) Object.assign(orthofast, { statutImporte: deduit.statut, typeImporte: deduit.type });
           patient.code = code;
           patient.lieu = lieu;
           patient.orthofast = orthofast;
           patient.modifieLe = maintenant;
           bilan.misAJour++;
         } else {
-          if (deduit) orthofast.statutImporte = deduit.statut;
+          if (deduit) Object.assign(orthofast, { statutImporte: deduit.statut, typeImporte: deduit.type });
           patient = nettoyerPatient(
             {
               ...entrant,

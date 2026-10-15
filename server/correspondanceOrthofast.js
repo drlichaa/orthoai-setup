@@ -9,11 +9,12 @@ const CORRESPONDANCES = [
   ["devis envoye", "Devis envoyé", ""],
   ["attente (trop tot)", "En attente (trop tôt)", ""],
   ["attente", "En attente (trop tôt)", ""],
-  ["jamais vu", "Première consultation", ""],
+  ["jamais vu", "Jamais vu", ""],
   ["1ere fois", "Première consultation", ""],
   ["bilan", "Première consultation", ""],
   ["plantt", "Devis envoyé", ""],
-  ["sans suite", "À archiver", ""],
+  // Patient qui n'a pas souhaité valider le devis.
+  ["sans suite", "Sans suite", ""],
   ["transfert", "À archiver", ""],
   ["suspension", "À revoir", ""],
   ["surveillance", "En surveillance", ""],
@@ -21,16 +22,17 @@ const CORRESPONDANCES = [
   ["disjoncteur", "En traitement", "Disjoncteur"],
   ["tt interceptif", "En traitement", "Interception"],
   ["cmu amovible enfant", "En traitement", "Interception"],
-  ["oam", "En traitement", "Interception"],
+  // Orthèse d'avancée mandibulaire (apnées du sommeil).
+  ["oam", "En traitement", "OAM"],
   ["tt gouttieres", "En traitement", "Aligneurs"],
   ["tt metal enfant", "En traitement", "Multi-attaches"],
   ["tt metal adulte", "En traitement", "Multi-attaches"],
   ["tt ceram enfant", "En traitement", "Multi-attaches"],
   ["tt ceram adulte", "En traitement", "Multi-attaches"],
   ["cmu metal enfant", "En traitement", "Multi-attaches"],
-  ["pul 2", "En traitement", ""],
-  ["pul2", "En traitement", ""],
-  ["carriere", "À revoir", ""],
+  ["pul 2", "En traitement", "Interception"],
+  ["pul2", "En traitement", "Interception"],
+  ["carriere", "En traitement", "Multi-attaches"],
 ];
 
 function cle(valeur) {
