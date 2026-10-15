@@ -229,9 +229,11 @@ export default function Patients({
             </button>
           </>
         )}
-        <button type="button" className="secondaire" onClick={onFermer}>
-          Retour à la consultation
-        </button>
+        {onFermer && (
+          <button type="button" className="secondaire" onClick={onFermer}>
+            Retour à la consultation
+          </button>
+        )}
       </div>
     </header>
   );

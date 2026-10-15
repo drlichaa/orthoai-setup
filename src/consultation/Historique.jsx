@@ -11,10 +11,7 @@ function formaterDate(iso) {
 }
 
 function sansAccents(texte) {
-  return (texte || "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase();
+  return (texte || "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
 // Création du mot de passe (premier usage) ou déverrouillage.
@@ -125,11 +122,21 @@ function ChangerMotDePasse() {
       <div className="cr-champs-ligne">
         <label>
           Mot de passe actuel
-          <input type="password" autoComplete="current-password" value={ancien} onChange={(e) => setAncien(e.target.value)} />
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={ancien}
+            onChange={(e) => setAncien(e.target.value)}
+          />
         </label>
         <label>
           Nouveau mot de passe
-          <input type="password" autoComplete="new-password" value={nouveau} onChange={(e) => setNouveau(e.target.value)} />
+          <input
+            type="password"
+            autoComplete="new-password"
+            value={nouveau}
+            onChange={(e) => setNouveau(e.target.value)}
+          />
         </label>
         <label>
           Confirmer
@@ -191,7 +198,8 @@ export default function Historique({ onOuvrir, onFermer }) {
 
   async function supprimer(fiche) {
     const nom = [fiche.patient?.prenom, fiche.patient?.nom].filter(Boolean).join(" ") || "ce patient";
-    if (!window.confirm(`Supprimer définitivement le compte rendu de ${nom} du ${formaterDate(fiche.patient?.date)} ?`)) return;
+    if (!window.confirm(`Supprimer définitivement le compte rendu de ${nom} du ${formaterDate(fiche.patient?.date)} ?`))
+      return;
     try {
       await appelHistorique("/supprimer", { id: fiche.id });
       charger();
@@ -225,7 +233,13 @@ export default function Historique({ onOuvrir, onFermer }) {
   const termes = sansAccents(recherche).split(/\s+/).filter(Boolean);
   const visibles = fiches.filter((f) => {
     const texte = sansAccents(
-      [f.patient?.nom, f.patient?.prenom, formaterDate(f.patient?.date), formaterDate(f.patient?.naissance), f.motif].join(" "),
+      [
+        f.patient?.nom,
+        f.patient?.prenom,
+        formaterDate(f.patient?.date),
+        formaterDate(f.patient?.naissance),
+        f.motif,
+      ].join(" "),
     );
     return termes.every((t) => texte.includes(t));
   });
@@ -240,9 +254,11 @@ export default function Historique({ onOuvrir, onFermer }) {
               Verrouiller
             </button>
           )}
-          <button type="button" className="principal" onClick={onFermer}>
-            Retour à la consultation
-          </button>
+          {onFermer && (
+            <button type="button" className="principal" onClick={onFermer}>
+              Retour à la consultation
+            </button>
+          )}
         </div>
       </header>
 
@@ -293,7 +309,8 @@ export default function Historique({ onOuvrir, onFermer }) {
                     <button type="button" className="cr-fiche" onClick={() => ouvrir(f.id)}>
                       <span className="cr-fiche-date">{formaterDate(f.patient?.date)}</span>
                       <span className="cr-fiche-nom">
-                        {[f.patient?.nom?.toUpperCase(), f.patient?.prenom].filter(Boolean).join(" ") || "Patient sans nom"}
+                        {[f.patient?.nom?.toUpperCase(), f.patient?.prenom].filter(Boolean).join(" ") ||
+                          "Patient sans nom"}
                         {f.patient?.naissance && <small> · né(e) le {formaterDate(f.patient.naissance)}</small>}
                       </span>
                       <span className="cr-fiche-motif">{f.motif}</span>

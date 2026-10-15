@@ -10,9 +10,9 @@ import { arreterWhisper } from "../server/whisper.js";
 const PORT = 8787;
 const ORIGINE = `http://127.0.0.1:${PORT}`;
 const PAGES = {
-  accueil: `${ORIGINE}/accueil.html`,
+  accueil: `${ORIGINE}/consultation.html#tableau`,
   segmentation: `${ORIGINE}/index.html`,
-  consultation: `${ORIGINE}/consultation.html`,
+  consultation: `${ORIGINE}/consultation.html#consultation`,
   patients: `${ORIGINE}/consultation.html#patients`,
 };
 
@@ -61,7 +61,7 @@ function creerMenu() {
       {
         label: "Aller à",
         submenu: [
-          { label: "Accueil", accelerator: "CmdOrCtrl+1", click: () => aller("accueil") },
+          { label: "Tableau de bord", accelerator: "CmdOrCtrl+1", click: () => aller("accueil") },
           { label: "Segmentation 3D", accelerator: "CmdOrCtrl+2", click: () => aller("segmentation") },
           { label: "Compte rendu de consultation", accelerator: "CmdOrCtrl+3", click: () => aller("consultation") },
           { label: "Patients", accelerator: "CmdOrCtrl+4", click: () => aller("patients") },

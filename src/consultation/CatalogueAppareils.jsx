@@ -188,11 +188,13 @@ export default function CatalogueAppareils({
   return (
     <div className="cr-app">
       <header className="cr-entete">
-        <h1>Appareils &amp; cabinet</h1>
+        <h1>Paramètres</h1>
         <div className="cr-actions">
-          <button type="button" className="principal" onClick={onFermer}>
-            Retour à la consultation
-          </button>
+          {onFermer && (
+            <button type="button" className="principal" onClick={onFermer}>
+              Retour à la consultation
+            </button>
+          )}
         </div>
       </header>
 

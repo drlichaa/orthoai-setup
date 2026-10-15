@@ -8,6 +8,8 @@ import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import CatalogueAppareils from "./CatalogueAppareils.jsx";
 import Historique, { Verrou } from "./Historique.jsx";
 import Patients from "./Patients.jsx";
+import Navigation from "./Navigation.jsx";
+import TableauDeBord from "./TableauDeBord.jsx";
 import { appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
 import { formaterNom, formaterPrenom } from "./format.js";
@@ -77,15 +79,25 @@ function ecrireStockage(cle, valeur) {
 
 // Appareils du tout premier catalogue (avant le suivi des appareils connus).
 const CATALOGUE_INITIAL = [
-  "disjoncteur", "quad_helix", "activateur", "masque_delaire", "plaque_amovible",
-  "multi_attaches_metal", "multi_attaches_ceramique", "aligneurs", "mainteneur_espace", "contention",
+  "disjoncteur",
+  "quad_helix",
+  "activateur",
+  "masque_delaire",
+  "plaque_amovible",
+  "multi_attaches_metal",
+  "multi_attaches_ceramique",
+  "aligneurs",
+  "mainteneur_espace",
+  "contention",
 ];
 
 // Ajoute au catalogue enregistré les appareils par défaut apparus depuis
 // (mise à jour) et actualise les textes par défaut restés intacts, sans toucher
 // aux textes modifiés ni réajouter les appareils supprimés.
 function completerAppareils(enregistres, connus = CATALOGUE_INITIAL) {
-  const nouveaux = APPAREILS_PAR_DEFAUT.filter((a) => !connus.includes(a.id) && !enregistres.some((e) => e.id === a.id));
+  const nouveaux = APPAREILS_PAR_DEFAUT.filter(
+    (a) => !connus.includes(a.id) && !enregistres.some((e) => e.id === a.id),
+  );
   const actualises = enregistres.map((a) =>
     ANCIENS_TEXTES[a.id]?.includes(a.texte) ? APPAREILS_PAR_DEFAUT.find((d) => d.id === a.id) : a,
   );
@@ -158,18 +170,40 @@ function ChampDents({ libelle, dents, onChange }) {
   );
 }
 
+// Pages de l'application et leur adresse (consultation.html#…).
+const ADRESSES = {
+  tableau: "tableau",
+  consultation: "consultation",
+  patients: "patients",
+  historique: "comptes-rendus",
+  catalogue: "parametres",
+};
+
+function vueDepuisAdresse() {
+  const hash = window.location.hash.slice(1);
+  return Object.keys(ADRESSES).find((v) => ADRESSES[v] === hash) || "tableau";
+}
+
 function EtatServeur({ sante }) {
   if (!sante) return null;
   if (sante.horsLigne) {
-    return <p className="cr-alerte">Serveur local injoignable : lancez l'application avec Demarrer (.cmd sur Windows, .command sur Mac).</p>;
+    return (
+      <p className="cr-alerte">
+        Serveur local injoignable : lancez l'application avec Demarrer (.cmd sur Windows, .command sur Mac).
+      </p>
+    );
   }
   const messages = [];
   const etat = sante.whisper?.etat;
-  if (etat === "absent") messages.push("Whisper n'est pas installé : lancez installer-whisper (.cmd sur Windows, .command sur Mac) puis relancez.");
+  if (etat === "absent")
+    messages.push(
+      "Whisper n'est pas installé : lancez installer-whisper (.cmd sur Windows, .command sur Mac) puis relancez.",
+    );
   if (etat === "demarrage") messages.push("Chargement du modèle de transcription…");
   if (etat === "erreur") messages.push(sante.whisper.erreur || "Whisper est indisponible.");
   if (!sante.cle) messages.push("Clé API absente : ajoutez-la dans « Appareils & cabinet » → Clé API Anthropic.");
-  if (messages.length === 0) return <p className="cr-ok">Transcription locale prête — l'audio ne quitte pas cet ordinateur.</p>;
+  if (messages.length === 0)
+    return <p className="cr-ok">Transcription locale prête — l'audio ne quitte pas cet ordinateur.</p>;
   return messages.map((m) => (
     <p key={m} className="cr-alerte">
       {m}
@@ -187,7 +221,8 @@ export default function ConsultationApp() {
   const [chargement, setChargement] = useState(false);
   const [erreurApi, setErreurApi] = useState("");
   // « #patients » dans l'adresse ouvre directement les dossiers patients (menu, accueil).
-  const [vue, setVue] = useState(() => (window.location.hash === "#patients" ? "patients" : "consultation"));
+  // Page affichée, reflétée dans l'adresse (#patients…) pour les liens et le bouton Retour.
+  const [vue, setVue] = useState(vueDepuisAdresse);
   // Dossier patient rattaché à la consultation, et dossier affiché dans « Patients ».
   const [patientId, setPatientId] = useState(null);
   const [patientSelectionne, setPatientSelectionne] = useState(null);
@@ -233,12 +268,20 @@ export default function ConsultationApp() {
   }, [cabinet, appareils]);
 
   useEffect(() => {
-    const surHash = () => {
-      if (window.location.hash === "#patients") setVue("patients");
+    const surAdresse = () => setVue(vueDepuisAdresse());
+    window.addEventListener("hashchange", surAdresse);
+    window.addEventListener("popstate", surAdresse);
+    return () => {
+      window.removeEventListener("hashchange", surAdresse);
+      window.removeEventListener("popstate", surAdresse);
     };
-    window.addEventListener("hashchange", surHash);
-    return () => window.removeEventListener("hashchange", surHash);
   }, []);
+
+  function aller(suivante) {
+    if (suivante !== vue) window.history.pushState(null, "", `#${ADRESSES[suivante]}`);
+    setVue(suivante);
+    window.scrollTo(0, 0);
+  }
 
   const ajouterTexte = useCallback((texte) => {
     if (!texte) return;
@@ -337,7 +380,11 @@ export default function ConsultationApp() {
     } catch (err) {
       // Historique verrouillé (423) ou pas encore créé (404) : proposer le mot de passe.
       const verrou = err.statut === 423 || err.statut === 404 ? { existe: err.statut === 423 } : null;
-      setSauvegarde({ enCours: false, erreur: silencieux || verrou ? "" : err.message, verrou: silencieux ? null : verrou });
+      setSauvegarde({
+        enCours: false,
+        erreur: silencieux || verrou ? "" : err.message,
+        verrou: silencieux ? null : verrou,
+      });
       return false;
     }
   }
@@ -380,7 +427,7 @@ export default function ConsultationApp() {
     setAppareilsFiges(fiche.appareils || []);
     setSignatureEnregistree(JSON.stringify({ patient: patientOuvert, rapport: rapportOuvert, notes: notesOuvertes }));
     setSauvegarde({ enCours: false, erreur: "", verrou: null });
-    setVue("consultation");
+    aller("consultation");
   }
 
   async function ouvrirCompteRendu(id) {
@@ -424,16 +471,10 @@ export default function ConsultationApp() {
     )
       return;
     viderConsultation({ nom: p.nom, prenom: p.prenom, naissance: p.naissance, sexe: p.sexe || "" }, p.id);
-    setVue("consultation");
+    aller("consultation");
   }
 
-  function fermerPatients() {
-    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
-    setVue("consultation");
-  }
-
-  const majDiagnostic = (cle, valeur) =>
-    setRapport((r) => ({ ...r, diagnostic: { ...r.diagnostic, [cle]: valeur } }));
+  const majDiagnostic = (cle, valeur) => setRapport((r) => ({ ...r, diagnostic: { ...r.diagnostic, [cle]: valeur } }));
   const majPlan = (cle, valeur) =>
     setRapport((r) => ({ ...r, plan_traitement: { ...r.plan_traitement, [cle]: valeur } }));
   const basculerAppareil = (id) =>
@@ -443,347 +484,395 @@ export default function ConsultationApp() {
       return { ...r, plan_traitement: { ...r.plan_traitement, appareils: suivants } };
     });
 
-  if (vue === "patients") {
-    return (
+  let contenu;
+  if (vue === "tableau") {
+    contenu = (
+      <TableauDeBord
+        cabinet={cabinet}
+        onAller={(v) => {
+          if (v === "patients") setPatientSelectionne(null);
+          aller(v);
+        }}
+        onOuvrirPatient={(id) => {
+          setPatientSelectionne(id);
+          aller("patients");
+        }}
+        onOuvrirCompteRendu={ouvrirCompteRendu}
+        onNouvelleConsultation={() => {
+          if (rapport || transcription.trim()) nouvelleConsultation();
+          aller("consultation");
+        }}
+      />
+    );
+  } else if (vue === "patients") {
+    contenu = (
       <Patients
         patientId={patientSelectionne}
         onSelection={setPatientSelectionne}
         onOuvrirCompteRendu={ouvrirCompteRendu}
         onNouvelleConsultation={consultationPour}
-        onFermer={fermerPatients}
         cabinet={cabinet}
         appareils={appareils}
       />
     );
-  }
-
-  if (vue === "historique") {
-    return <Historique onOuvrir={ouvrirFiche} onFermer={() => setVue("consultation")} />;
-  }
-
-  if (vue === "catalogue") {
-    return (
+  } else if (vue === "historique") {
+    contenu = <Historique onOuvrir={ouvrirFiche} />;
+  } else if (vue === "catalogue") {
+    contenu = (
       <CatalogueAppareils
         appareils={appareils}
         onChange={setAppareils}
         onReinitialiser={() => setAppareils(APPAREILS_PAR_DEFAUT)}
         cabinet={cabinet}
         onCabinetChange={setCabinet}
-        onFermer={() => setVue("consultation")}
       />
+    );
+  } else {
+    contenu = (
+      <div className="cr-app">
+        <header className="cr-entete no-print">
+          <h1>
+            Compte rendu · 1<sup>re</sup> consultation
+          </h1>
+          <div className="cr-actions">
+            {patientId && (
+              <button
+                type="button"
+                className="secondaire"
+                onClick={() => {
+                  setPatientSelectionne(patientId);
+                  aller("patients");
+                }}
+              >
+                Dossier du patient
+              </button>
+            )}
+            <button type="button" className="secondaire" onClick={nouvelleConsultation}>
+              Nouvelle consultation
+            </button>
+          </div>
+        </header>
+
+        <main className="cr-grille no-print">
+          <section className="cr-carte">
+            <h2>Patient</h2>
+            <div className="cr-champs-ligne">
+              <label>
+                Nom
+                <input
+                  value={patient.nom}
+                  onChange={(e) => setPatient({ ...patient, nom: formaterNom(e.target.value) })}
+                />
+              </label>
+              <label>
+                Prénom
+                <input
+                  value={patient.prenom}
+                  onChange={(e) => setPatient({ ...patient, prenom: formaterPrenom(e.target.value) })}
+                />
+              </label>
+              <label>
+                Date de naissance
+                <input
+                  type="date"
+                  value={patient.naissance}
+                  onChange={(e) => setPatient({ ...patient, naissance: e.target.value })}
+                />
+              </label>
+              <label>
+                Date de consultation
+                <input
+                  type="date"
+                  value={patient.date}
+                  onChange={(e) => setPatient({ ...patient, date: e.target.value })}
+                />
+              </label>
+              <label>
+                Sexe
+                <select value={patient.sexe || ""} onChange={(e) => setPatient({ ...patient, sexe: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="F">Féminin</option>
+                  <option value="M">Masculin</option>
+                </select>
+              </label>
+            </div>
+            <p className="cr-aide">
+              Le nom et le prénom restent sur cet appareil : ils sont remplacés par « [patient] » avant l'envoi.
+            </p>
+          </section>
+
+          <section className="cr-carte">
+            <h2>Enregistrement</h2>
+            <EtatServeur sante={whisper} />
+            {!enregistrementDisponible && (
+              <p className="cr-alerte">L'enregistrement audio n'est pas disponible dans ce navigateur.</p>
+            )}
+            <div className="cr-enregistrement">
+              <button
+                type="button"
+                className={micro.enCours ? "cr-micro actif" : "cr-micro"}
+                onClick={micro.enCours ? micro.arreter : micro.demarrer}
+                disabled={!enregistrementDisponible}
+              >
+                {micro.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
+              </button>
+              <span className="cr-chrono">{formaterDuree(secondes)}</span>
+              {micro.enCours && (
+                <span className="cr-niveau" aria-hidden="true">
+                  <span style={{ width: `${Math.round(micro.niveau * 100)}%` }} />
+                </span>
+              )}
+              <span className="cr-etat">
+                {micro.enCours ? "Écoute en cours…" : transcription ? "En pause" : "Prêt"}
+                {micro.enAttente > 0 &&
+                  ` · transcription de ${micro.enAttente} segment${micro.enAttente > 1 ? "s" : ""}…`}
+              </span>
+            </div>
+            {micro.erreur && <p className="cr-alerte">{micro.erreur}</p>}
+            {micro.echecs > 0 && (
+              <p className="cr-alerte">
+                {micro.echecs} segment{micro.echecs > 1 ? "s" : ""} non transcrit{micro.echecs > 1 ? "s" : ""}.{" "}
+                <button type="button" className="secondaire" onClick={micro.reessayer}>
+                  Réessayer
+                </button>
+              </p>
+            )}
+            <p className="cr-aide">
+              Astuce : dictez clairement vos constats cliniques (« formule dentaire complète », « classe II division 1
+              molaire bilatérale », « encombrement modéré à la mandibule »…) ; le reste de la conversation est filtré.
+            </p>
+
+            <details className="cr-details">
+              <summary>Transcription brute ({transcription.split(/\s+/).filter(Boolean).length} mots)</summary>
+              <textarea
+                rows={8}
+                value={transcription}
+                onChange={(e) => setTranscription(e.target.value)}
+                readOnly={micro.enCours || micro.enAttente > 0}
+              />
+            </details>
+
+            <label className="cr-bloc">
+              Notes complémentaires (facultatif)
+              <textarea
+                rows={3}
+                value={notes}
+                placeholder="Ex. : agénésie 35 confirmée sur la panoramique, proposition disjoncteur puis multi-attaches"
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </label>
+
+            <button
+              type="button"
+              className="principal"
+              onClick={genererCompteRendu}
+              disabled={chargement || micro.enCours || micro.enAttente > 0 || (!transcription.trim() && !notes.trim())}
+            >
+              {chargement
+                ? "Rédaction du compte rendu…"
+                : micro.enAttente > 0
+                  ? "Transcription en cours…"
+                  : rapport
+                    ? "Régénérer le compte rendu"
+                    : "Générer le compte rendu"}
+            </button>
+            {erreurApi && <p className="cr-alerte">{erreurApi}</p>}
+          </section>
+
+          {rapport && (
+            <section className="cr-carte cr-pleine">
+              <div className="cr-titre-section">
+                <h2>Compte rendu (modifiable)</h2>
+                <div className="cr-sauvegarde">
+                  <span className={enregistre ? "cr-sauvegarde-etat ok" : "cr-sauvegarde-etat"}>
+                    {enregistre
+                      ? "✓ Enregistré dans l'historique"
+                      : idHistorique
+                        ? "Modifications non enregistrées"
+                        : ""}
+                  </span>
+                  <button
+                    type="button"
+                    className="secondaire"
+                    onClick={() => enregistrerHistorique()}
+                    disabled={sauvegarde.enCours || enregistre}
+                  >
+                    {sauvegarde.enCours ? "Enregistrement…" : "Enregistrer dans l'historique"}
+                  </button>
+                  <button type="button" className="principal" onClick={() => imprimer()}>
+                    Imprimer / PDF
+                  </button>
+                </div>
+              </div>
+              {sauvegarde.verrou && (
+                <div className="cr-carte">
+                  <h3>
+                    {sauvegarde.verrou.existe ? "Déverrouiller l'historique" : "Créer l'historique de cet ordinateur"}
+                  </h3>
+                  <Verrou
+                    existe={sauvegarde.verrou.existe}
+                    onDeverrouille={() => enregistrerHistorique()}
+                    onAnnuler={() => setSauvegarde({ enCours: false, erreur: "", verrou: null })}
+                  />
+                </div>
+              )}
+              {sauvegarde.erreur && <p className="cr-alerte">{sauvegarde.erreur}</p>}
+
+              {rapport.points_a_verifier.length > 0 && (
+                <div className="cr-verifier">
+                  <strong>À vérifier avant impression</strong>
+                  <ul>
+                    {rapport.points_a_verifier.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <label className="cr-bloc">
+                1. Motif de consultation
+                <textarea
+                  rows={3}
+                  value={rapport.motif}
+                  onChange={(e) => setRapport({ ...rapport, motif: e.target.value })}
+                />
+              </label>
+
+              <h3>2. Diagnostic</h3>
+              <div className="cr-diagnostic">
+                {CHAMPS_DIAGNOSTIC.slice(0, 5).map(([cle, libelle]) => (
+                  <label key={cle}>
+                    {libelle}
+                    <textarea
+                      rows={2}
+                      value={rapport.diagnostic[cle]}
+                      onChange={(e) => majDiagnostic(cle, e.target.value)}
+                    />
+                  </label>
+                ))}
+                <label>
+                  Encombrement
+                  <div className="cr-encombrement">
+                    <select
+                      value={rapport.diagnostic.encombrement}
+                      onChange={(e) => majDiagnostic("encombrement", e.target.value)}
+                    >
+                      <option value="">Non précisé</option>
+                      <option value="léger">Léger</option>
+                      <option value="modéré">Modéré</option>
+                      <option value="sévère">Sévère</option>
+                    </select>
+                    <input
+                      placeholder="Précision (arcade, mm…)"
+                      value={rapport.diagnostic.encombrement_precision}
+                      onChange={(e) => majDiagnostic("encombrement_precision", e.target.value)}
+                    />
+                  </div>
+                </label>
+                {CHAMPS_DIAGNOSTIC.slice(5).map(([cle, libelle]) => (
+                  <label key={cle}>
+                    {libelle}
+                    <textarea
+                      rows={2}
+                      value={rapport.diagnostic[cle]}
+                      onChange={(e) => majDiagnostic(cle, e.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+
+              <div className="cr-champs-ligne cr-bloc">
+                {[
+                  ["agenesies", "Agénésies (schéma dentaire)"],
+                  ["a_extraire", "Dents à extraire (schéma dentaire)"],
+                  ["incluses", "Dents incluses (schéma dentaire)"],
+                ].map(([cle, libelle]) => (
+                  <ChampDents
+                    key={cle}
+                    libelle={libelle}
+                    dents={rapport.dents[cle]}
+                    onChange={(liste) => setRapport((r) => ({ ...r, dents: { ...r.dents, [cle]: liste } }))}
+                  />
+                ))}
+              </div>
+              <p className="cr-aide">
+                Reportées sur le schéma dentaire du patient à l'enregistrement dans l'historique.
+              </p>
+
+              <h3>3. Plan de traitement</h3>
+              <label className="cr-bloc">
+                Explication au patient
+                <textarea
+                  rows={4}
+                  value={rapport.plan_traitement.resume}
+                  onChange={(e) => majPlan("resume", e.target.value)}
+                />
+              </label>
+              <label className="cr-bloc">
+                Durée estimée
+                <input
+                  value={rapport.plan_traitement.duree_estimee}
+                  onChange={(e) => majPlan("duree_estimee", e.target.value)}
+                />
+              </label>
+              {rapport.plan_traitement.appareils_hors_catalogue.length > 0 && (
+                <p className="cr-alerte">
+                  Appareils évoqués absents du catalogue : {rapport.plan_traitement.appareils_hors_catalogue.join(", ")}
+                  . Ajoutez-les dans « Appareils &amp; cabinet » pour qu'ils aient leur texte.
+                </p>
+              )}
+              <fieldset className="cr-appareils">
+                <legend>Appareils proposés (le texte pré-enregistré sera ajouté au compte rendu)</legend>
+                {appareilsAffiches.map((a) => (
+                  <label key={a.id} className="cr-case">
+                    <input
+                      type="checkbox"
+                      checked={rapport.plan_traitement.appareils.includes(a.id)}
+                      onChange={() => basculerAppareil(a.id)}
+                    />
+                    {a.nom}
+                  </label>
+                ))}
+              </fieldset>
+
+              <h3>4. Courriers aux confrères</h3>
+              <CourriersEdition
+                courriers={rapport.courriers}
+                onChange={(courriers) => setRapport({ ...rapport, courriers })}
+                onImprimer={imprimer}
+              />
+            </section>
+          )}
+        </main>
+
+        {rapport && (
+          <div className={courrierImprime === null ? undefined : "no-print"}>
+            <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />
+          </div>
+        )}
+        {rapport?.courriers[courrierImprime] && (
+          <CourrierDocument
+            courrier={rapport.courriers[courrierImprime]}
+            patient={patient}
+            cabinet={cabinet}
+            resume={resumeClinique(rapport, appareilsAffiches)}
+          />
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="cr-app">
-      <header className="cr-entete no-print">
-        <h1>Compte rendu · 1<sup>re</sup> consultation</h1>
-        <div className="cr-actions">
-          <a className="cr-lien-accueil" href="/accueil.html">
-            ← Accueil
-          </a>
-          {patientId && (
-            <button
-              type="button"
-              className="secondaire"
-              onClick={() => {
-                setPatientSelectionne(patientId);
-                setVue("patients");
-              }}
-            >
-              Dossier du patient
-            </button>
-          )}
-          <button
-            type="button"
-            className="secondaire"
-            onClick={() => {
-              setPatientSelectionne(null);
-              setVue("patients");
-            }}
-          >
-            Patients
-          </button>
-          <button type="button" className="secondaire" onClick={() => setVue("historique")}>
-            Historique
-          </button>
-          <button type="button" className="secondaire" onClick={() => setVue("catalogue")}>
-            Appareils &amp; cabinet
-          </button>
-          <button type="button" className="secondaire" onClick={nouvelleConsultation}>
-            Nouvelle consultation
-          </button>
-        </div>
-      </header>
-
-      <main className="cr-grille no-print">
-        <section className="cr-carte">
-          <h2>Patient</h2>
-          <div className="cr-champs-ligne">
-            <label>
-              Nom
-              <input value={patient.nom} onChange={(e) => setPatient({ ...patient, nom: formaterNom(e.target.value) })} />
-            </label>
-            <label>
-              Prénom
-              <input
-                value={patient.prenom}
-                onChange={(e) => setPatient({ ...patient, prenom: formaterPrenom(e.target.value) })}
-              />
-            </label>
-            <label>
-              Date de naissance
-              <input
-                type="date"
-                value={patient.naissance}
-                onChange={(e) => setPatient({ ...patient, naissance: e.target.value })}
-              />
-            </label>
-            <label>
-              Date de consultation
-              <input type="date" value={patient.date} onChange={(e) => setPatient({ ...patient, date: e.target.value })} />
-            </label>
-            <label>
-              Sexe
-              <select value={patient.sexe || ""} onChange={(e) => setPatient({ ...patient, sexe: e.target.value })}>
-                <option value="">—</option>
-                <option value="F">Féminin</option>
-                <option value="M">Masculin</option>
-              </select>
-            </label>
-          </div>
-          <p className="cr-aide">Le nom et le prénom restent sur cet appareil : ils sont remplacés par « [patient] » avant l'envoi.</p>
-        </section>
-
-        <section className="cr-carte">
-          <h2>Enregistrement</h2>
-          <EtatServeur sante={whisper} />
-          {!enregistrementDisponible && (
-            <p className="cr-alerte">L'enregistrement audio n'est pas disponible dans ce navigateur.</p>
-          )}
-          <div className="cr-enregistrement">
-            <button
-              type="button"
-              className={micro.enCours ? "cr-micro actif" : "cr-micro"}
-              onClick={micro.enCours ? micro.arreter : micro.demarrer}
-              disabled={!enregistrementDisponible}
-            >
-              {micro.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
-            </button>
-            <span className="cr-chrono">{formaterDuree(secondes)}</span>
-            {micro.enCours && (
-              <span className="cr-niveau" aria-hidden="true">
-                <span style={{ width: `${Math.round(micro.niveau * 100)}%` }} />
-              </span>
-            )}
-            <span className="cr-etat">
-              {micro.enCours ? "Écoute en cours…" : transcription ? "En pause" : "Prêt"}
-              {micro.enAttente > 0 && ` · transcription de ${micro.enAttente} segment${micro.enAttente > 1 ? "s" : ""}…`}
-            </span>
-          </div>
-          {micro.erreur && <p className="cr-alerte">{micro.erreur}</p>}
-          {micro.echecs > 0 && (
-            <p className="cr-alerte">
-              {micro.echecs} segment{micro.echecs > 1 ? "s" : ""} non transcrit{micro.echecs > 1 ? "s" : ""}.{" "}
-              <button type="button" className="secondaire" onClick={micro.reessayer}>
-                Réessayer
-              </button>
-            </p>
-          )}
-          <p className="cr-aide">
-            Astuce : dictez clairement vos constats cliniques (« formule dentaire complète », « classe II division 1
-            molaire bilatérale », « encombrement modéré à la mandibule »…) ; le reste de la conversation est filtré.
-          </p>
-
-          <details className="cr-details">
-            <summary>Transcription brute ({transcription.split(/\s+/).filter(Boolean).length} mots)</summary>
-            <textarea
-              rows={8}
-              value={transcription}
-              onChange={(e) => setTranscription(e.target.value)}
-              readOnly={micro.enCours || micro.enAttente > 0}
-            />
-          </details>
-
-          <label className="cr-bloc">
-            Notes complémentaires (facultatif)
-            <textarea
-              rows={3}
-              value={notes}
-              placeholder="Ex. : agénésie 35 confirmée sur la panoramique, proposition disjoncteur puis multi-attaches"
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </label>
-
-          <button
-            type="button"
-            className="principal"
-            onClick={genererCompteRendu}
-            disabled={chargement || micro.enCours || micro.enAttente > 0 || (!transcription.trim() && !notes.trim())}
-          >
-            {chargement
-              ? "Rédaction du compte rendu…"
-              : micro.enAttente > 0
-                ? "Transcription en cours…"
-                : rapport
-                  ? "Régénérer le compte rendu"
-                  : "Générer le compte rendu"}
-          </button>
-          {erreurApi && <p className="cr-alerte">{erreurApi}</p>}
-        </section>
-
-        {rapport && (
-          <section className="cr-carte cr-pleine">
-            <div className="cr-titre-section">
-              <h2>Compte rendu (modifiable)</h2>
-              <div className="cr-sauvegarde">
-                <span className={enregistre ? "cr-sauvegarde-etat ok" : "cr-sauvegarde-etat"}>
-                  {enregistre ? "✓ Enregistré dans l'historique" : idHistorique ? "Modifications non enregistrées" : ""}
-                </span>
-                <button
-                  type="button"
-                  className="secondaire"
-                  onClick={() => enregistrerHistorique()}
-                  disabled={sauvegarde.enCours || enregistre}
-                >
-                  {sauvegarde.enCours ? "Enregistrement…" : "Enregistrer dans l'historique"}
-                </button>
-                <button type="button" className="principal" onClick={() => imprimer()}>
-                  Imprimer / PDF
-                </button>
-              </div>
-            </div>
-            {sauvegarde.verrou && (
-              <div className="cr-carte">
-                <h3>{sauvegarde.verrou.existe ? "Déverrouiller l'historique" : "Créer l'historique de cet ordinateur"}</h3>
-                <Verrou
-                  existe={sauvegarde.verrou.existe}
-                  onDeverrouille={() => enregistrerHistorique()}
-                  onAnnuler={() => setSauvegarde({ enCours: false, erreur: "", verrou: null })}
-                />
-              </div>
-            )}
-            {sauvegarde.erreur && <p className="cr-alerte">{sauvegarde.erreur}</p>}
-
-            {rapport.points_a_verifier.length > 0 && (
-              <div className="cr-verifier">
-                <strong>À vérifier avant impression</strong>
-                <ul>
-                  {rapport.points_a_verifier.map((p, i) => (
-                    <li key={i}>{p}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <label className="cr-bloc">
-              1. Motif de consultation
-              <textarea rows={3} value={rapport.motif} onChange={(e) => setRapport({ ...rapport, motif: e.target.value })} />
-            </label>
-
-            <h3>2. Diagnostic</h3>
-            <div className="cr-diagnostic">
-              {CHAMPS_DIAGNOSTIC.slice(0, 5).map(([cle, libelle]) => (
-                <label key={cle}>
-                  {libelle}
-                  <textarea rows={2} value={rapport.diagnostic[cle]} onChange={(e) => majDiagnostic(cle, e.target.value)} />
-                </label>
-              ))}
-              <label>
-                Encombrement
-                <div className="cr-encombrement">
-                  <select
-                    value={rapport.diagnostic.encombrement}
-                    onChange={(e) => majDiagnostic("encombrement", e.target.value)}
-                  >
-                    <option value="">Non précisé</option>
-                    <option value="léger">Léger</option>
-                    <option value="modéré">Modéré</option>
-                    <option value="sévère">Sévère</option>
-                  </select>
-                  <input
-                    placeholder="Précision (arcade, mm…)"
-                    value={rapport.diagnostic.encombrement_precision}
-                    onChange={(e) => majDiagnostic("encombrement_precision", e.target.value)}
-                  />
-                </div>
-              </label>
-              {CHAMPS_DIAGNOSTIC.slice(5).map(([cle, libelle]) => (
-                <label key={cle}>
-                  {libelle}
-                  <textarea rows={2} value={rapport.diagnostic[cle]} onChange={(e) => majDiagnostic(cle, e.target.value)} />
-                </label>
-              ))}
-            </div>
-
-            <div className="cr-champs-ligne cr-bloc">
-              {[
-                ["agenesies", "Agénésies (schéma dentaire)"],
-                ["a_extraire", "Dents à extraire (schéma dentaire)"],
-                ["incluses", "Dents incluses (schéma dentaire)"],
-              ].map(([cle, libelle]) => (
-                <ChampDents
-                  key={cle}
-                  libelle={libelle}
-                  dents={rapport.dents[cle]}
-                  onChange={(liste) => setRapport((r) => ({ ...r, dents: { ...r.dents, [cle]: liste } }))}
-                />
-              ))}
-            </div>
-            <p className="cr-aide">Reportées sur le schéma dentaire du patient à l'enregistrement dans l'historique.</p>
-
-            <h3>3. Plan de traitement</h3>
-            <label className="cr-bloc">
-              Explication au patient
-              <textarea rows={4} value={rapport.plan_traitement.resume} onChange={(e) => majPlan("resume", e.target.value)} />
-            </label>
-            <label className="cr-bloc">
-              Durée estimée
-              <input value={rapport.plan_traitement.duree_estimee} onChange={(e) => majPlan("duree_estimee", e.target.value)} />
-            </label>
-            {rapport.plan_traitement.appareils_hors_catalogue.length > 0 && (
-              <p className="cr-alerte">
-                Appareils évoqués absents du catalogue : {rapport.plan_traitement.appareils_hors_catalogue.join(", ")}. Ajoutez-les
-                dans « Appareils &amp; cabinet » pour qu'ils aient leur texte.
-              </p>
-            )}
-            <fieldset className="cr-appareils">
-              <legend>Appareils proposés (le texte pré-enregistré sera ajouté au compte rendu)</legend>
-              {appareilsAffiches.map((a) => (
-                <label key={a.id} className="cr-case">
-                  <input
-                    type="checkbox"
-                    checked={rapport.plan_traitement.appareils.includes(a.id)}
-                    onChange={() => basculerAppareil(a.id)}
-                  />
-                  {a.nom}
-                </label>
-              ))}
-            </fieldset>
-
-            <h3>4. Courriers aux confrères</h3>
-            <CourriersEdition
-              courriers={rapport.courriers}
-              onChange={(courriers) => setRapport({ ...rapport, courriers })}
-              onImprimer={imprimer}
-            />
-          </section>
-        )}
-      </main>
-
-      {rapport && (
-        <div className={courrierImprime === null ? undefined : "no-print"}>
-          <CompteRendu rapport={rapport} patient={patient} cabinet={cabinet} appareils={appareilsAffiches} />
-        </div>
-      )}
-      {rapport?.courriers[courrierImprime] && (
-        <CourrierDocument
-          courrier={rapport.courriers[courrierImprime]}
-          patient={patient}
-          cabinet={cabinet}
-          resume={resumeClinique(rapport, appareilsAffiches)}
-        />
-      )}
+    <div className="oa-cadre">
+      <Navigation
+        vue={vue}
+        cabinet={cabinet}
+        onAller={(v) => {
+          if (v === "patients") setPatientSelectionne(null);
+          aller(v);
+        }}
+      />
+      <main className="oa-principal">{contenu}</main>
     </div>
   );
 }

@@ -13,7 +13,10 @@ function Ligne({ libelle, valeur }) {
 
 export default function CompteRendu({ rapport, patient, cabinet, appareils }) {
   const { diagnostic: d, plan_traitement: plan } = rapport;
-  const encombrement = [d.encombrement && d.encombrement[0].toUpperCase() + d.encombrement.slice(1), d.encombrement_precision]
+  const encombrement = [
+    d.encombrement && d.encombrement[0].toUpperCase() + d.encombrement.slice(1),
+    d.encombrement_precision,
+  ]
     .filter(Boolean)
     .join(" – ");
   const appareilsChoisis = plan.appareils.map((id) => appareils.find((a) => a.id === id)).filter(Boolean);
@@ -39,7 +42,12 @@ export default function CompteRendu({ rapport, patient, cabinet, appareils }) {
       {(nomPatient || patient.naissance) && (
         <p className="cr-doc-patient">
           Patient : <strong>{nomPatient}</strong>
-          {patient.naissance && <> — {accorder("né(e)", patient.sexe)} le {formaterDate(patient.naissance)}</>}
+          {patient.naissance && (
+            <>
+              {" "}
+              — {accorder("né(e)", patient.sexe)} le {formaterDate(patient.naissance)}
+            </>
+          )}
         </p>
       )}
 
