@@ -11,6 +11,7 @@ import Patients from "./Patients.jsx";
 import Navigation from "./Navigation.jsx";
 import TableauDeBord from "./TableauDeBord.jsx";
 import Taches, { Laboratoire } from "./Taches.jsx";
+import ResumeACopier from "./ResumeACopier.jsx";
 import { appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
 import { formaterNom, formaterPrenom } from "./format.js";
@@ -221,6 +222,8 @@ export default function ConsultationApp() {
   const [transcription, setTranscription] = useState("");
   const [notes, setNotes] = useState("");
   const [rapport, setRapport] = useState(null);
+  // Onglet du compte rendu : modification ou résumé à copier dans l'ancien logiciel.
+  const [ongletRapport, setOngletRapport] = useState("edition");
   const [chargement, setChargement] = useState(false);
   const [erreurApi, setErreurApi] = useState("");
   // « #patients » dans l'adresse ouvre directement les dossiers patients (menu, accueil).
@@ -720,143 +723,167 @@ export default function ConsultationApp() {
                   </button>
                 </div>
               </div>
-              {sauvegarde.verrou && (
-                <div className="cr-carte">
-                  <h3>
-                    {sauvegarde.verrou.existe ? "Déverrouiller l'historique" : "Créer l'historique de cet ordinateur"}
-                  </h3>
-                  <Verrou
-                    existe={sauvegarde.verrou.existe}
-                    onDeverrouille={() => enregistrerHistorique()}
-                    onAnnuler={() => setSauvegarde({ enCours: false, erreur: "", verrou: null })}
-                  />
-                </div>
-              )}
-              {sauvegarde.erreur && <p className="cr-alerte">{sauvegarde.erreur}</p>}
-
-              {rapport.points_a_verifier.length > 0 && (
-                <div className="cr-verifier">
-                  <strong>À vérifier avant impression</strong>
-                  <ul>
-                    {rapport.points_a_verifier.map((p, i) => (
-                      <li key={i}>{p}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <label className="cr-bloc">
-                1. Motif de consultation
-                <textarea
-                  rows={3}
-                  value={rapport.motif}
-                  onChange={(e) => setRapport({ ...rapport, motif: e.target.value })}
-                />
-              </label>
-
-              <h3>2. Diagnostic</h3>
-              <div className="cr-diagnostic">
-                {CHAMPS_DIAGNOSTIC.slice(0, 5).map(([cle, libelle]) => (
-                  <label key={cle}>
-                    {libelle}
-                    <textarea
-                      rows={2}
-                      value={rapport.diagnostic[cle]}
-                      onChange={(e) => majDiagnostic(cle, e.target.value)}
-                    />
-                  </label>
-                ))}
-                <label>
-                  Encombrement
-                  <div className="cr-encombrement">
-                    <select
-                      value={rapport.diagnostic.encombrement}
-                      onChange={(e) => majDiagnostic("encombrement", e.target.value)}
-                    >
-                      <option value="">Non précisé</option>
-                      <option value="léger">Léger</option>
-                      <option value="modéré">Modéré</option>
-                      <option value="sévère">Sévère</option>
-                    </select>
-                    <input
-                      placeholder="Précision (arcade, mm…)"
-                      value={rapport.diagnostic.encombrement_precision}
-                      onChange={(e) => majDiagnostic("encombrement_precision", e.target.value)}
-                    />
-                  </div>
-                </label>
-                {CHAMPS_DIAGNOSTIC.slice(5).map(([cle, libelle]) => (
-                  <label key={cle}>
-                    {libelle}
-                    <textarea
-                      rows={2}
-                      value={rapport.diagnostic[cle]}
-                      onChange={(e) => majDiagnostic(cle, e.target.value)}
-                    />
-                  </label>
-                ))}
-              </div>
-
-              <div className="cr-champs-ligne cr-bloc">
+              <nav className="cr-onglets" aria-label="Compte rendu">
                 {[
-                  ["agenesies", "Agénésies (schéma dentaire)"],
-                  ["a_extraire", "Dents à extraire (schéma dentaire)"],
-                  ["incluses", "Dents incluses (schéma dentaire)"],
+                  ["edition", "Compte rendu"],
+                  ["copier", "Résumé à copier"],
                 ].map(([cle, libelle]) => (
-                  <ChampDents
+                  <button
                     key={cle}
-                    libelle={libelle}
-                    dents={rapport.dents[cle]}
-                    onChange={(liste) => setRapport((r) => ({ ...r, dents: { ...r.dents, [cle]: liste } }))}
-                  />
+                    type="button"
+                    className={ongletRapport === cle ? "cr-onglet actif" : "cr-onglet"}
+                    onClick={() => setOngletRapport(cle)}
+                  >
+                    {libelle}
+                  </button>
                 ))}
-              </div>
-              <p className="cr-aide">
-                Reportées sur le schéma dentaire du patient à l'enregistrement dans l'historique.
-              </p>
+              </nav>
+              {ongletRapport === "copier" ? (
+                <ResumeACopier rapport={rapport} appareils={appareilsAffiches} />
+              ) : (
+                <>
+                  {sauvegarde.verrou && (
+                    <div className="cr-carte">
+                      <h3>
+                        {sauvegarde.verrou.existe
+                          ? "Déverrouiller l'historique"
+                          : "Créer l'historique de cet ordinateur"}
+                      </h3>
+                      <Verrou
+                        existe={sauvegarde.verrou.existe}
+                        onDeverrouille={() => enregistrerHistorique()}
+                        onAnnuler={() => setSauvegarde({ enCours: false, erreur: "", verrou: null })}
+                      />
+                    </div>
+                  )}
+                  {sauvegarde.erreur && <p className="cr-alerte">{sauvegarde.erreur}</p>}
 
-              <h3>3. Plan de traitement</h3>
-              <label className="cr-bloc">
-                Explication au patient
-                <textarea
-                  rows={4}
-                  value={rapport.plan_traitement.resume}
-                  onChange={(e) => majPlan("resume", e.target.value)}
-                />
-              </label>
-              <label className="cr-bloc">
-                Durée estimée
-                <input
-                  value={rapport.plan_traitement.duree_estimee}
-                  onChange={(e) => majPlan("duree_estimee", e.target.value)}
-                />
-              </label>
-              {rapport.plan_traitement.appareils_hors_catalogue.length > 0 && (
-                <p className="cr-alerte">
-                  Appareils évoqués absents du catalogue : {rapport.plan_traitement.appareils_hors_catalogue.join(", ")}
-                  . Ajoutez-les dans « Appareils &amp; cabinet » pour qu'ils aient leur texte.
-                </p>
-              )}
-              <fieldset className="cr-appareils">
-                <legend>Appareils proposés (le texte pré-enregistré sera ajouté au compte rendu)</legend>
-                {appareilsAffiches.map((a) => (
-                  <label key={a.id} className="cr-case">
-                    <input
-                      type="checkbox"
-                      checked={rapport.plan_traitement.appareils.includes(a.id)}
-                      onChange={() => basculerAppareil(a.id)}
+                  {rapport.points_a_verifier.length > 0 && (
+                    <div className="cr-verifier">
+                      <strong>À vérifier avant impression</strong>
+                      <ul>
+                        {rapport.points_a_verifier.map((p, i) => (
+                          <li key={i}>{p}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <label className="cr-bloc">
+                    1. Motif de consultation
+                    <textarea
+                      rows={3}
+                      value={rapport.motif}
+                      onChange={(e) => setRapport({ ...rapport, motif: e.target.value })}
                     />
-                    {a.nom}
                   </label>
-                ))}
-              </fieldset>
 
-              <h3>4. Courriers aux confrères</h3>
-              <CourriersEdition
-                courriers={rapport.courriers}
-                onChange={(courriers) => setRapport({ ...rapport, courriers })}
-                onImprimer={imprimer}
-              />
+                  <h3>2. Diagnostic</h3>
+                  <div className="cr-diagnostic">
+                    {CHAMPS_DIAGNOSTIC.slice(0, 5).map(([cle, libelle]) => (
+                      <label key={cle}>
+                        {libelle}
+                        <textarea
+                          rows={2}
+                          value={rapport.diagnostic[cle]}
+                          onChange={(e) => majDiagnostic(cle, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      Encombrement
+                      <div className="cr-encombrement">
+                        <select
+                          value={rapport.diagnostic.encombrement}
+                          onChange={(e) => majDiagnostic("encombrement", e.target.value)}
+                        >
+                          <option value="">Non précisé</option>
+                          <option value="léger">Léger</option>
+                          <option value="modéré">Modéré</option>
+                          <option value="sévère">Sévère</option>
+                        </select>
+                        <input
+                          placeholder="Précision (arcade, mm…)"
+                          value={rapport.diagnostic.encombrement_precision}
+                          onChange={(e) => majDiagnostic("encombrement_precision", e.target.value)}
+                        />
+                      </div>
+                    </label>
+                    {CHAMPS_DIAGNOSTIC.slice(5).map(([cle, libelle]) => (
+                      <label key={cle}>
+                        {libelle}
+                        <textarea
+                          rows={2}
+                          value={rapport.diagnostic[cle]}
+                          onChange={(e) => majDiagnostic(cle, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="cr-champs-ligne cr-bloc">
+                    {[
+                      ["agenesies", "Agénésies (schéma dentaire)"],
+                      ["a_extraire", "Dents à extraire (schéma dentaire)"],
+                      ["incluses", "Dents incluses (schéma dentaire)"],
+                    ].map(([cle, libelle]) => (
+                      <ChampDents
+                        key={cle}
+                        libelle={libelle}
+                        dents={rapport.dents[cle]}
+                        onChange={(liste) => setRapport((r) => ({ ...r, dents: { ...r.dents, [cle]: liste } }))}
+                      />
+                    ))}
+                  </div>
+                  <p className="cr-aide">
+                    Reportées sur le schéma dentaire du patient à l'enregistrement dans l'historique.
+                  </p>
+
+                  <h3>3. Plan de traitement</h3>
+                  <label className="cr-bloc">
+                    Explication au patient
+                    <textarea
+                      rows={4}
+                      value={rapport.plan_traitement.resume}
+                      onChange={(e) => majPlan("resume", e.target.value)}
+                    />
+                  </label>
+                  <label className="cr-bloc">
+                    Durée estimée
+                    <input
+                      value={rapport.plan_traitement.duree_estimee}
+                      onChange={(e) => majPlan("duree_estimee", e.target.value)}
+                    />
+                  </label>
+                  {rapport.plan_traitement.appareils_hors_catalogue.length > 0 && (
+                    <p className="cr-alerte">
+                      Appareils évoqués absents du catalogue :{" "}
+                      {rapport.plan_traitement.appareils_hors_catalogue.join(", ")}. Ajoutez-les dans « Appareils &amp;
+                      cabinet » pour qu'ils aient leur texte.
+                    </p>
+                  )}
+                  <fieldset className="cr-appareils">
+                    <legend>Appareils proposés (le texte pré-enregistré sera ajouté au compte rendu)</legend>
+                    {appareilsAffiches.map((a) => (
+                      <label key={a.id} className="cr-case">
+                        <input
+                          type="checkbox"
+                          checked={rapport.plan_traitement.appareils.includes(a.id)}
+                          onChange={() => basculerAppareil(a.id)}
+                        />
+                        {a.nom}
+                      </label>
+                    ))}
+                  </fieldset>
+
+                  <h3>4. Courriers aux confrères</h3>
+                  <CourriersEdition
+                    courriers={rapport.courriers}
+                    onChange={(courriers) => setRapport({ ...rapport, courriers })}
+                    onImprimer={imprimer}
+                  />
+                </>
+              )}
             </section>
           )}
         </main>

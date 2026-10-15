@@ -506,3 +506,8 @@ button.oa-chiffre:hover { border-color: #c8d6f2; }
 .oa-dep-zone { position: absolute; z-index: 2; white-space: pre-wrap; overflow: hidden; line-height: 1.15; font-family: Arial, sans-serif; font-weight: 600; color: #000; }
 .oa-dep-croix { position: absolute; z-index: 3; transform: translate(-50%, -50%); font: bold 15px Arial, sans-serif; color: #000; }
 .oa-dep-signature { position: absolute; z-index: 2; left: 33%; top: 92.6%; max-height: 2.6%; }
+
+/* Résumé à copier dans l'ancien logiciel */
+.oa-copier-bloc { margin-bottom: 14px; }
+.oa-copier-bloc h3 { margin: 0; }
+.oa-copier-bloc textarea { width: 100%; font-family: inherit; font-size: 0.95rem; line-height: 1.5; margin-top: 6px; }
