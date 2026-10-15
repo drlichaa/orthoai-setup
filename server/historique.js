@@ -313,6 +313,7 @@ export function creerHistorique(fichier) {
             phaseDepuis: p.gestion.phaseDepuis,
             devis: (p.gestion.devis || []).map((d) => ({ id: d.id, regime: d.regime })),
             deps: (p.gestion.deps || []).map((d) => ({ semestre: d.semestre, nature: d.nature, numero: d.numero })),
+            depOrthofast: p.gestion.depOrthofast,
           }
         : undefined,
     };
@@ -784,6 +785,13 @@ export function creerHistorique(fichier) {
           );
           patients = [...patients, patient];
           bilan.crees++;
+        }
+        // Dernière DEP faite dans OrthoFast : sert à colorer la frise (points verts).
+        if (patient.gestion?.semestres?.debut) {
+          const derniereDep = /^\d{4}-\d{2}-\d{2}$/.test(brut.derniereDep || "") ? brut.derniereDep : "";
+          if (derniereDep)
+            patient.gestion.depOrthofast = { date: derniereDep, detail: texte(brut.derniereDepDetail, 100) };
+          else delete patient.gestion.depOrthofast;
         }
       }
       sauvegarder();

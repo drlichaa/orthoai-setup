@@ -172,6 +172,25 @@ export function premierDuGroupe(numero) {
   return numero % 2 ? numero : numero - 1;
 }
 
+// Paires couvertes par la « Dernière DEP faite » d'OrthoFast : la DEP vaut pour la paire
+// qui commence dans les 45 jours suivant sa date (ou en cours), et toutes les paires
+// précédentes ; au-delà de la fin des semestres, elle couvre aussi la contention.
+function couvertureOrthofast(gestion, couverts) {
+  const s = gestion?.semestres;
+  const d = gestion?.depOrthofast;
+  if (!s?.debut || !s.nombre || !/^\d{4}-\d{2}-\d{2}$/.test(d?.date || "")) return;
+  const reference = ajouterJours(d.date, 45);
+  const dep = { nature: "orthofast", date: d.date, detail: d.detail || "" };
+  let dernier = 0;
+  for (let i = 1; i <= s.nombre; i++) if (ajouterMois(s.debut, (i - 1) * 6) <= reference) dernier = i;
+  if (!dernier) return;
+  const fin = ajouterMois(s.debut, s.nombre * 6);
+  const contention = /conten/i.test(dep.detail) || reference >= fin;
+  const jusqua = contention ? s.nombre : Math.min(s.nombre, premierDuGroupe(dernier) + 1);
+  for (let i = 1; i <= jusqua; i++) if (!couverts.has(i)) couverts.set(i, dep);
+  if (contention && !couverts.has("C")) couverts.set("C", dep);
+}
+
 function couverture(gestion) {
   const couverts = new Map();
   for (const d of gestion?.deps || []) {
@@ -181,6 +200,7 @@ function couverture(gestion) {
       couverts.set(n, d).set(n + 1, d);
     } else if (Number(d.semestre)) couverts.set(Number(d.semestre), d);
   }
+  couvertureOrthofast(gestion, couverts);
   return couverts;
 }
 

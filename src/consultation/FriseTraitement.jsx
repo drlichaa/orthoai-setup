@@ -6,6 +6,8 @@ import { aujourdhui, dureeLisible, euros, frise, libelleDep, priseEnChargeSecu }
 function infoDep(s) {
   if (!s.depDetail) return s.dep ? "DEP faite" : "DEP à faire";
   const d = s.depDetail;
+  if (d.nature === "orthofast")
+    return `DEP faite dans OrthoFast (dernière le ${formaterDate(d.date)}${d.detail ? ` · ${d.detail}` : ""})`;
   return `${libelleDep(d)} imprimée le ${formaterDate(d.date)}${d.envoyee ? `, envoyée le ${formaterDate(d.envoyee)}` : " (pas encore envoyée)"}`;
 }
 
