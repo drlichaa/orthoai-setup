@@ -522,3 +522,5 @@ button.oa-chiffre:hover { border-color: #c8d6f2; }
 .oa-pastille-lieu.chesnay { background: #eff8ff; color: #175cd3; border-color: #b2ddff; }
 select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 @media (max-width: 900px) { .oa-lieux { margin: 0 8px 0 0; } }
+.oa-table-fiche th { text-align: left; font-weight: 600; width: 34%; color: var(--cr-texte-doux, #555); }
+.oa-orthofast h3 { margin: 14px 0 6px; font-size: 1rem; }

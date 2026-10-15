@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { flushSync } from "react-dom";
 import { CourrierDocument, CourriersEdition } from "./Courriers.jsx";
 import { texteExtractions } from "./modelesCourriers.js";
@@ -844,6 +845,7 @@ export default function FichePatient({
 
         {onglet === "patient" && (
           <>
+            <DonneesOrthofast orthofast={patient.orthofast} />
             <section className="cr-carte">
               <h2>Identité</h2>
               <div className="cr-champs-ligne">

@@ -66,7 +66,9 @@ const objet = (v) => (v && typeof v === "object" && !Array.isArray(v) ? nettoyer
 
 function deriverCle(motDePasse, sel) {
   return new Promise((resolvePromise, reject) => {
-    scrypt(motDePasse.normalize("NFC"), sel, 32, PARAMETRES_SCRYPT, (err, cle) => (err ? reject(err) : resolvePromise(cle)));
+    scrypt(motDePasse.normalize("NFC"), sel, 32, PARAMETRES_SCRYPT, (err, cle) =>
+      err ? reject(err) : resolvePromise(cle),
+    );
   });
 }
 
@@ -89,7 +91,12 @@ function chiffrer(cle, donnees) {
 }
 
 function dechiffrer(cle, { iv, tag, contenu }) {
-  const clair = dechiffrerOctets(cle, Buffer.from(iv, "base64"), Buffer.from(tag, "base64"), Buffer.from(contenu, "base64"));
+  const clair = dechiffrerOctets(
+    cle,
+    Buffer.from(iv, "base64"),
+    Buffer.from(tag, "base64"),
+    Buffer.from(contenu, "base64"),
+  );
   return JSON.parse(clair.toString("utf8"));
 }
 
@@ -138,11 +145,7 @@ function nettoyerDents(brut) {
 }
 
 function sansAccents(t) {
-  return (t || "")
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .trim()
-    .toLowerCase();
+  return (t || "").normalize("NFD").replace(/\p{M}/gu, "").trim().toLowerCase();
 }
 
 function dateFrancaise(iso) {
@@ -211,7 +214,11 @@ export function creerHistorique(fichier) {
   }
 
   function sauvegarder() {
-    const enveloppe = { version: 2, sel: sel.toString("base64"), ...chiffrer(cle, { fiches, patients, reglages, gestion }) };
+    const enveloppe = {
+      version: 2,
+      sel: sel.toString("base64"),
+      ...chiffrer(cle, { fiches, patients, reglages, gestion }),
+    };
     ecrireAtomique(fichier, JSON.stringify(enveloppe));
   }
 
@@ -231,7 +238,10 @@ export function creerHistorique(fichier) {
 
   function valider(motDePasse) {
     if (typeof motDePasse !== "string" || motDePasse.length < LONGUEUR_MIN_MOT_DE_PASSE) {
-      throw new ErreurHistorique(400, `Le mot de passe doit contenir au moins ${LONGUEUR_MIN_MOT_DE_PASSE} caractères.`);
+      throw new ErreurHistorique(
+        400,
+        `Le mot de passe doit contenir au moins ${LONGUEUR_MIN_MOT_DE_PASSE} caractères.`,
+      );
     }
   }
 
@@ -342,6 +352,8 @@ export function creerHistorique(fichier) {
       medias: existant?.medias || [],
       // Devis, semestres, DEP, laboratoire, aligneurs, rappels, incidents…
       gestion: objet(brut.gestion),
+      // Dernier état lu dans l'export OrthoFast (DEP, règlements…), remplacé à chaque import.
+      orthofast: objet(brut.orthofast),
       // Séries de photos, radios ou empreintes 3D : élément du scénario → média.
       series: liste(brut.series)
         .filter((s) => /^[\w-]{1,100}$/.test(s?.id || ""))
@@ -404,9 +416,7 @@ export function creerHistorique(fichier) {
       const seance = seanceConsultation(fiche);
       const existante =
         patient.seances.find((s) => s.compteRendu === fiche.id) ||
-        patient.seances.find(
-          (s) => !s.compteRendu && s.date === seance.date && PREMIERE_CONSULTATION.test(s.fait),
-        );
+        patient.seances.find((s) => !s.compteRendu && s.date === seance.date && PREMIERE_CONSULTATION.test(s.fait));
       if (existante && !existante.compteRendu) {
         existante.compteRendu = fiche.id;
         modifie = true;
@@ -546,7 +556,8 @@ export function creerHistorique(fichier) {
       return fiches
         .map(resume)
         .sort(
-          (a, b) => (b.patient?.date || "").localeCompare(a.patient?.date || "") || b.modifieLe.localeCompare(a.modifieLe),
+          (a, b) =>
+            (b.patient?.date || "").localeCompare(a.patient?.date || "") || b.modifieLe.localeCompare(a.modifieLe),
         );
     },
 
@@ -618,6 +629,85 @@ export function creerHistorique(fichier) {
       return patient;
     },
 
+    // Import de l'export « liste des patients » d'OrthoFast pour un cabinet.
+    // Clé : cabinet + code patient. Un dossier créé dans OrthoAI sans code (même
+    // nom, prénom et naissance) est rattaché au lieu d'être dupliqué. Les champs
+    // déjà remplis dans OrthoAI ne sont jamais remplacés ; seul le bloc
+    // « orthofast » (DEP, règlements, traitement) est mis à jour.
+    importerOrthofast(lieu, liste) {
+      exiger();
+      lieu = texte(lieu, 50);
+      if (!lieu) throw new ErreurHistorique(400, "Choisissez le cabinet de l'export.");
+      if (!Array.isArray(liste)) throw new ErreurHistorique(400, "Liste de patients absente.");
+      const identite = (p) => [p.nom, p.prenom, p.naissance].map(sansAccents).join("|");
+      const bilan = { crees: 0, misAJour: 0, ignores: 0 };
+      const vus = new Set();
+      const maintenant = new Date().toISOString();
+      for (const brut of liste.slice(0, 20000)) {
+        const code = texte(brut?.code, 20).trim();
+        const nom = formaterNom(texte(brut?.nom, 200));
+        if (!code || !nom || vus.has(code)) {
+          bilan.ignores++;
+          continue;
+        }
+        vus.add(code);
+        const entrant = {
+          nom,
+          prenom: formaterPrenom(texte(brut.prenom, 200)),
+          naissance: /^\d{4}-\d{2}-\d{2}$/.test(brut.naissance || "") ? brut.naissance : "",
+        };
+        let patient =
+          patients.find((p) => p.lieu === lieu && p.code === code) ||
+          patients.find((p) => !p.code && [lieu, ""].includes(p.lieu || "") && identite(p) === identite(entrant));
+        const sexe = /^f/i.test(brut.sexe || "") ? "F" : /^m/i.test(brut.sexe || "") ? "M" : "";
+        const complements = {
+          naissance: entrant.naissance,
+          sexe,
+          dossier: texte(brut.dossier, 20),
+          telephone: texte(brut.telephone, 100),
+          portable: texte(brut.portable, 100),
+          email: texte(brut.email, 200),
+          envoyePar: texte(brut.envoyePar, 300),
+          dentiste: texte(brut.dentiste, 300),
+          autreCorrespondant: texte(brut.autreCorrespondant, 300),
+          orthodontiste: texte(brut.orthodontiste, 200),
+          debut: /^\d{4}-\d{2}-\d{2}$/.test(brut.debutTraitement || "") ? brut.debutTraitement : "",
+        };
+        const orthofast = nettoyerJson({
+          importeLe: maintenant,
+          typeTraitement: brut.typeTraitement,
+          depuis: brut.depuis,
+          orthodontiste: brut.orthodontiste,
+          debutTraitement: brut.debutTraitement,
+          miseEnAttente: brut.miseEnAttente,
+          derniereDep: brut.derniereDep,
+          derniereDepDetail: brut.derniereDepDetail,
+          prochaineDep: brut.prochaineDep,
+          prochaineDepDetail: brut.prochaineDepDetail,
+          reglements: Array.isArray(brut.reglements) ? brut.reglements.slice(0, 20) : [],
+        });
+        if (patient) {
+          for (const [champ, valeur] of Object.entries(complements)) {
+            if (valeur && !patient[champ]) patient[champ] = valeur;
+          }
+          patient.code = code;
+          patient.lieu = lieu;
+          patient.orthofast = orthofast;
+          patient.modifieLe = maintenant;
+          bilan.misAJour++;
+        } else {
+          patient = nettoyerPatient(
+            { ...entrant, ...complements, code, lieu, statut: reglages.statuts[0]?.nom || "", orthofast },
+            null,
+          );
+          patients = [...patients, patient];
+          bilan.crees++;
+        }
+      }
+      sauvegarder();
+      return bilan;
+    },
+
     // Supprime le dossier, ses photos / radios et ses comptes rendus.
     supprimerPatient(id) {
       exiger();
@@ -678,7 +768,12 @@ export function creerHistorique(fichier) {
     ajouterMedia(patientId, nom, typeMime, octets) {
       exiger();
       const patient = trouverPatient(patientId);
-      const media = { id: randomUUID(), nom: texte(nom, 200) || "image", type: texte(typeMime, 50), ajouteLe: new Date().toISOString() };
+      const media = {
+        id: randomUUID(),
+        nom: texte(nom, 200) || "image",
+        type: texte(typeMime, 50),
+        ajouteLe: new Date().toISOString(),
+      };
       ecrireAtomique(cheminMedia(media.id), chiffrerMedia(cle, octets));
       patient.medias = [...patient.medias, media];
       sauvegarder();

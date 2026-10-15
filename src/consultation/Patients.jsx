@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { appelApi, appelHistorique } from "./apiHistorique.js";
 import FichePatient from "./FichePatient.jsx";
+import ImportOrthofast from "./ImportOrthofast.jsx";
 import { Verrou } from "./Historique.jsx";
 import { dansLieu, lieux, nomLieu } from "./lieux.js";
 import { age, classeStatut, formaterDate, formaterNom, formaterPrenom } from "./format.js";
@@ -215,7 +216,7 @@ export default function Patients({
   const [donnees, setDonnees] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtre, setFiltre] = useState("Tous");
-  const [mode, setMode] = useState("liste"); // liste | nouveau | reglages
+  const [mode, setMode] = useState("liste"); // liste | nouveau | reglages | import
   // Montre les dossiers sans cabinet, à rattacher au Chesnay ou à Herblay.
   const [sansLieu, setSansLieu] = useState(false);
 
@@ -243,6 +244,9 @@ export default function Patients({
               onClick={() => setMode(mode === "reglages" ? "liste" : "reglages")}
             >
               {mode === "reglages" ? "Retour à la liste" : "Statuts"}
+            </button>
+            <button type="button" className="secondaire" onClick={() => setMode("import")}>
+              Importer l'export OrthoFast
             </button>
             <button type="button" className="principal" onClick={() => setMode("nouveau")}>
               + Nouveau patient
@@ -320,6 +324,17 @@ export default function Patients({
             onSelection(id);
           }}
           onAnnuler={() => setMode("liste")}
+        />
+      )}
+      {mode === "import" && (
+        <ImportOrthofast
+          cabinet={cabinet}
+          lieuActif={lieuActif}
+          onAnnuler={() => setMode("liste")}
+          onTermine={() => {
+            setMode("liste");
+            charger();
+          }}
         />
       )}
       {mode === "reglages" ? (

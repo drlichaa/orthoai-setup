@@ -1,5 +1,6 @@
 // Onglet « Devis & semestres » du dossier : devis conventionnel ou HN, validation,
 // semestres (facturation), DEP sur le Cerfa officiel.
+import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { useState } from "react";
 import { DepDocument, DevisDocument } from "./DocumentsGestion.jsx";
 import { formaterDate } from "./format.js";
@@ -666,6 +667,7 @@ export default function GestionTraitement({ patient, maj, majGestion, cabinet, d
     <>
       <Devis {...{ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer }} />
       <Semestres g={g} majGestion={majGestion} />
+      <DonneesOrthofast orthofast={patient.orthofast} />
       <Dep {...{ patient, g, majGestion, cabinet, onImprimer }} />
       <Administratif g={g} majGestion={majGestion} patient={patient} />
     </>

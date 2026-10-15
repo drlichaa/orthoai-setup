@@ -31,3 +31,8 @@ whisper/
 
 # Application compilée
 release/
+
+# Exports patients (OrthoFast, Excel) : données réelles, jamais dans le dépôt
+*.xlsx
+*.xls
+*.csv

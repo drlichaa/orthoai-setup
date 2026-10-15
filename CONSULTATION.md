@@ -209,3 +209,12 @@ avec votre DPO.
 - **Suivi du traitement** (onglet) : progression, laboratoire (envoyé / reçu / posé), aligneurs avec calendrier modifiable, rappels différés, alerte « non revu depuis X mois », incidents, chronologie.
 - **Tâches** et **Laboratoire** (menu) : tâches manuelles partagées par le cabinet + échéances automatiques (facturation, DEP, envoi et renouvellement de DEP, non revus, rappels, appareils en retard), réglables dans Paramètres → Automatisations. Alertes résumées sur le tableau de bord.
 - Données : champ `gestion` de chaque dossier et `gestion.taches` du coffre, chiffrés comme le reste.
+
+## Import de l'export OrthoFast
+
+Écran **Patients → Importer l'export OrthoFast** : choisir le cabinet (Le Chesnay ou Herblay), puis le fichier Excel « liste des patients » exporté d'OrthoFast. Le fichier est lu dans l'application, sur l'ordinateur ; seules les données des patients partent vers le serveur du cabinet, qui les enregistre dans le coffre chiffré. Le fichier n'est ni conservé ni envoyé ailleurs.
+
+- Clé de rattachement : cabinet + code patient. Un dossier OrthoAI sans code, de même nom, prénom et date de naissance (dans ce cabinet ou sans cabinet), est rattaché au lieu d'être dupliqué.
+- Les champs déjà remplis dans OrthoAI ne sont jamais écrasés ; l'import ne fait que compléter les champs vides (téléphone, e-mail, correspondants, début du traitement…).
+- Le dernier état OrthoFast (type de traitement, DEP faite et prochaine, règlements dus) est remplacé à chaque import et s'affiche dans les onglets **Patient** et **Devis & semestres** de la fiche.
+- Les exports Excel/CSV sont exclus du dépôt (`.gitignore`) : ne jamais les y ajouter.

@@ -118,14 +118,19 @@ async function routePatients(historique, req, res, url) {
     return { media: historique.ajouterMedia(parametres.get("patient"), parametres.get("nom"), type, octets) };
   }
   const corps = methode === "POST" ? await readJsonBody(req) : {};
-  if (methode === "POST" && url === "/api/patients/enregistrer") return { patient: historique.enregistrerPatient(corps.patient) };
+  if (methode === "POST" && url === "/api/patients/enregistrer")
+    return { patient: historique.enregistrerPatient(corps.patient) };
   if (methode === "POST" && url === "/api/patients/supprimer") return historique.supprimerPatient(corps.id);
   if (methode === "GET" && url === "/api/patients/gestion") return historique.gestion();
   if (methode === "POST" && url === "/api/patients/gestion") return historique.enregistrerGestion(corps);
   if (methode === "POST" && url === "/api/patients/gestion/dossier")
     return { gestion: historique.enregistrerGestionPatient(corps.id, corps.gestion) };
-  if (methode === "POST" && url === "/api/patients/reglages") return { reglages: historique.enregistrerReglages(corps.reglages) };
-  if (methode === "POST" && url === "/api/patients/media/supprimer") return historique.supprimerMedia(corps.patient, corps.id);
+  if (methode === "POST" && url === "/api/patients/importer-orthofast")
+    return historique.importerOrthofast(corps.lieu, corps.patients);
+  if (methode === "POST" && url === "/api/patients/reglages")
+    return { reglages: historique.enregistrerReglages(corps.reglages) };
+  if (methode === "POST" && url === "/api/patients/media/supprimer")
+    return historique.supprimerMedia(corps.patient, corps.id);
   throw new ErreurHistorique(404, "Route inconnue");
 }
 
@@ -194,7 +199,12 @@ function messageErreurApi(err) {
   return [500, err.message || "Erreur inattendue"];
 }
 
-export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, fichierHistorique = FICHIER_HISTORIQUE } = {}) {
+export function demarrerServeur({
+  port = 8787,
+  dossierStatique,
+  fichierConfig,
+  fichierHistorique = FICHIER_HISTORIQUE,
+} = {}) {
   const config = creerConfig(fichierConfig);
   const historique = creerHistorique(fichierHistorique);
   const sessions = creerSessions();
@@ -219,7 +229,9 @@ export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, f
       try {
         const { motDePasse } = await readJsonBody(req);
         if (!historique.etat().existe) {
-          return sendJson(res, 409, { error: "Le coffre n'est pas encore créé : ouvrez d'abord OrthoAI sur l'ordinateur serveur." });
+          return sendJson(res, 409, {
+            error: "Le coffre n'est pas encore créé : ouvrez d'abord OrthoAI sur l'ordinateur serveur.",
+          });
         }
         await historique.deverrouiller(motDePasse);
         sessions.ouvrir(res);
@@ -293,8 +305,10 @@ export function demarrerServeur({ port = 8787, dossierStatique, fichierConfig, f
         return sendJson(res, 400, { error: err.message });
       }
       const cle = typeof body.cle === "string" ? body.cle.trim() : "";
-      if (!config.modifiable) return sendJson(res, 400, { error: "Clé non modifiable ici : utilisez le fichier .env." });
-      if (!cle.startsWith("sk-ant-")) return sendJson(res, 400, { error: "Ce n'est pas une clé API Anthropic (elle commence par sk-ant-)." });
+      if (!config.modifiable)
+        return sendJson(res, 400, { error: "Clé non modifiable ici : utilisez le fichier .env." });
+      if (!cle.startsWith("sk-ant-"))
+        return sendJson(res, 400, { error: "Ce n'est pas une clé API Anthropic (elle commence par sk-ant-)." });
       try {
         // Vérifie la clé avant de l'enregistrer.
         await new Anthropic({ apiKey: cle }).models.list({ limit: 1 });
