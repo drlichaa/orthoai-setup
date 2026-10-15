@@ -182,9 +182,24 @@ export function semestres(gestion) {
       montant: s.montants?.[i - 1] ?? null,
       facture: s.factures?.[i] || "",
       dep: (gestion.deps || []).some((d) => Number(d.semestre) === i) || Boolean(s.depFaites?.[i]),
+      // Semestre passé créé à l'import OrthoFast : facturation et DEP à vérifier
+      // par le praticien (pas de tâche automatique).
+      aVerifier: Boolean(s.aVerifier?.[i]) && !s.factures?.[i],
     });
   }
   return liste;
+}
+
+// Traitement pris en charge par la Sécurité sociale : devis validé « Sécu »,
+// ou, pour les semestres repris d'OrthoFast, patient assuré de moins de
+// l'âge limite (16 ans) au début du traitement.
+export function priseEnChargeSecu(patient, gestion, ageLimite = BAREME_PAR_DEFAUT.ageHorsNomenclature) {
+  const s = gestion?.semestres;
+  if (!s?.debut) return false;
+  const devis = (gestion.devis || []).find((d) => d.id === s.devisId);
+  if (devis) return devis.regime !== "hn";
+  if (patient?.securiteSociale === false || !patient?.naissance) return false;
+  return moisEntre(patient.naissance, s.debut) / 12 < ageLimite;
 }
 
 // Date de la dernière séance (« jj/mm/aaaa » ou ISO), ou du début du traitement.
@@ -204,7 +219,7 @@ export function echeancesPatient(p, auj = aujourdhui()) {
   const actif = !["attente", "contention", "suspension"].includes(g.phase || "actif");
   if (actif) {
     for (const s of semestres(g)) {
-      if (s.debut > auj) continue;
+      if (s.debut > auj || s.aVerifier) continue;
       if (!s.facture)
         ajouter(
           `fact-${s.numero}`,

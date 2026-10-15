@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { appelApi, appelHistorique } from "./apiHistorique.js";
 import FichePatient from "./FichePatient.jsx";
+import FriseSemestres from "./FriseSemestres.jsx";
 import ImportOrthofast from "./ImportOrthofast.jsx";
 import { Verrou } from "./Historique.jsx";
 import { dansLieu, lieux, nomLieu } from "./lieux.js";
@@ -406,6 +407,7 @@ export default function Patients({
                       {!lieuActif && p.lieu && (
                         <span className={`oa-pastille-lieu ${p.lieu}`}>{nomLieu(cabinet, p.lieu)}</span>
                       )}
+                      {p.gestion && <FriseSemestres patient={p} gestion={p.gestion} compacte />}
                       {p.type && <span className="cr-pastille c-type">{p.type}</span>}
                       {p.statut && <span className={classeStatut(reglages, p.statut)}>{p.statut}</span>}
                     </span>

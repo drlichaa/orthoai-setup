@@ -3,6 +3,7 @@
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { useState } from "react";
 import { DepDocument, DevisDocument } from "./DocumentsGestion.jsx";
+import FriseSemestres from "./FriseSemestres.jsx";
 import { formaterDate } from "./format.js";
 import {
   DEP_DIAGNOSTIC,
@@ -350,9 +351,8 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
   );
 }
 
-function Semestres({ g, majGestion }) {
+function Semestres({ patient, g, majGestion }) {
   const liste = semestres(g);
-  const auj = aujourdhui();
   return (
     <section className="cr-carte">
       <div className="cr-titre-section">
@@ -375,17 +375,13 @@ function Semestres({ g, majGestion }) {
         <p className="cr-aide">Les semestres se créent quand un devis est validé (« Signé : démarrer »).</p>
       ) : (
         <>
-          <div className="oa-frise">
-            {liste.map((s) => (
-              <div key={s.numero} className={`oa-frise-etape ${s.facture ? "fait" : s.debut <= auj ? "du" : ""}`}>
-                <b>S{s.numero}</b>
-                <small>{formaterDate(s.debut)}</small>
-                <strong>{s.montant != null ? euros(s.montant) : "—"}</strong>
-                <small>{s.facture ? "✓ Facturé" : s.debut <= auj ? "À facturer" : "À venir"}</small>
-                <small>{s.dep ? "DEP ✓" : "DEP à faire"}</small>
-              </div>
-            ))}
-          </div>
+          <FriseSemestres patient={patient} gestion={g} />
+          {liste.some((s) => s.aVerifier) && (
+            <p className="cr-aide">
+              Semestres repris d'OrthoFast : cochez « Facturé » pour ceux déjà facturés. Les semestres « à vérifier » ne
+              créent pas de tâche.
+            </p>
+          )}
           <table className="oa-table">
             <thead>
               <tr>
@@ -666,7 +662,7 @@ export default function GestionTraitement({ patient, maj, majGestion, cabinet, d
   return (
     <>
       <Devis {...{ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer }} />
-      <Semestres g={g} majGestion={majGestion} />
+      <Semestres patient={patient} g={g} majGestion={majGestion} />
       <DonneesOrthofast orthofast={patient.orthofast} />
       <Dep {...{ patient, g, majGestion, cabinet, onImprimer }} />
       <Administratif g={g} majGestion={majGestion} patient={patient} />

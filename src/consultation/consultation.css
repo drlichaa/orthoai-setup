@@ -524,3 +524,23 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 @media (max-width: 900px) { .oa-lieux { margin: 0 8px 0 0; } }
 .oa-table-fiche th { text-align: left; font-weight: 600; width: 34%; color: var(--cr-texte-doux, #555); }
 .oa-orthofast h3 { margin: 14px 0 6px; font-size: 1rem; }
+
+/* Frise des semestres : états et point vert « DEP imprimée » */
+.oa-frise-etape b { display: flex; align-items: center; gap: 6px; }
+.oa-frise-etape.encours { border-color: var(--cr-accent); background: #eff6ff; box-shadow: 0 0 0 1px var(--cr-accent) inset; }
+.oa-frise-etape.verifier { border-color: #d0d5dd; border-style: dashed; background: #fff; }
+.oa-frise-etape.avenir { opacity: 0.75; }
+.oa-point-dep { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #12b76a; box-shadow: 0 0 0 2px #ecfdf3; flex: none; }
+.oa-frise-mini { display: inline-flex; gap: 3px; flex-wrap: wrap; vertical-align: middle; }
+.oa-frise-mini-case {
+  position: relative; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 5px; font-size: 0.7rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--cr-bord); background: #f8fafc; color: var(--cr-doux);
+}
+.oa-frise-mini-case.fait { background: #d1fadf; border-color: #6ce9a6; color: #05603a; }
+.oa-frise-mini-case.du { background: #fef0c7; border-color: #f5b041; color: #93370d; }
+.oa-frise-mini-case.encours { background: var(--cr-accent); border-color: var(--cr-accent); color: #fff; }
+.oa-frise-mini-case.verifier { border-style: dashed; background: #fff; }
+.oa-frise-mini-case .oa-point-dep { position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; }
+.oa-frise-entete { display: block; width: 100%; margin-top: 12px; padding: 0; border: 0; background: none; text-align: left; font: inherit; font-weight: 400; cursor: pointer; }
+.oa-frise-entete .oa-frise { padding-bottom: 4px; }
+.oa-frise-mini-case.encours.verifier { background: #fff; color: var(--cr-accent); border-color: var(--cr-accent); }

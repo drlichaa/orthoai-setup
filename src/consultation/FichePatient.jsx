@@ -6,6 +6,7 @@ import { texteExtractions } from "./modelesCourriers.js";
 import { appelApi, envoyerFichier, envoyerImage } from "./apiHistorique.js";
 import { SCENARIOS_PAR_DEFAUT, ligneSuivi } from "./scenarios.js";
 import GestionTraitement from "./GestionTraitement.jsx";
+import FriseSemestres from "./FriseSemestres.jsx";
 import SuiviTraitement from "./SuiviTraitement.jsx";
 import { cabinetPour, lieux } from "./lieux.js";
 import SeriesImages, { PlancheDocument } from "./SeriesImages.jsx";
@@ -513,6 +514,16 @@ export default function FichePatient({
               </select>
             </div>
           </div>
+          {patient.gestion?.semestres?.debut && (
+            <button
+              type="button"
+              className="oa-frise-entete"
+              title="Ouvrir « Devis & semestres »"
+              onClick={() => setOnglet("gestion")}
+            >
+              <FriseSemestres patient={patient} gestion={patient.gestion} />
+            </button>
+          )}
           {patient.alerte && <p className="cr-alerte cr-alerte-patient">⚠ {patient.alerte}</p>}
         </section>
 
