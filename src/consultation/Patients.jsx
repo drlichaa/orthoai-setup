@@ -218,6 +218,7 @@ export default function Patients({
   const [donnees, setDonnees] = useState(null);
   const [recherche, setRecherche] = useState("");
   const [filtre, setFiltre] = useState("Tous");
+  const [priseEnCharge, setPriseEnCharge] = useState("toutes");
   const [mode, setMode] = useState("liste"); // liste | nouveau | reglages | import
   // Montre les dossiers sans cabinet, à rattacher au Chesnay ou à Herblay.
   const [sansLieu, setSansLieu] = useState(false);
@@ -308,8 +309,10 @@ export default function Patients({
   const termes = sansAccents(recherche).split(/\s+/).filter(Boolean);
   const aAttribuer = patients.filter((p) => !p.lieu);
   const duLieu = sansLieu ? aAttribuer : patients.filter((p) => dansLieu(lieuActif, p.lieu));
+  const enTraitement = duLieu.filter((p) => p.statut === "En traitement");
   const visibles = duLieu
     .filter((p) => filtre === "Tous" || p.type === filtre)
+    .filter((p) => priseEnCharge === "toutes" || (priseEnCharge === "cmu") === Boolean(p.cmu))
     .filter((p) => {
       const texte = sansAccents([p.nom, p.prenom, formaterDate(p.naissance), p.code].join(" "));
       return termes.every((t) => texte.includes(t));
@@ -397,6 +400,27 @@ export default function Patients({
               </button>
             ))}
           </div>
+          {/* Prise en charge : patients CMU / mutuelle, et décompte des patients en traitement. */}
+          <div className="cr-filtres">
+            {[
+              ["toutes", "CMU et mutuelle", duLieu.length],
+              ["cmu", "CMU", duLieu.filter((p) => p.cmu).length],
+              ["mutuelle", "Mutuelle", duLieu.filter((p) => !p.cmu).length],
+            ].map(([cle, libelle, n]) => (
+              <button
+                key={cle}
+                type="button"
+                className={cle === priseEnCharge ? "cr-filtre actif" : "cr-filtre"}
+                onClick={() => setPriseEnCharge(cle)}
+              >
+                {libelle} ({n})
+              </button>
+            ))}
+            <span className="cr-aide">
+              En traitement : {enTraitement.filter((p) => p.cmu).length} CMU ·{" "}
+              {enTraitement.filter((p) => !p.cmu).length} mutuelle
+            </span>
+          </div>
           {visibles.length === 0 ? (
             <p className="cr-aide">
               {patients.length === 0
@@ -425,6 +449,7 @@ export default function Patients({
                       )}
                       {p.gestion && <FriseSemestres patient={p} gestion={p.gestion} />}
                       {p.type && <span className="cr-pastille c-type">{p.type}</span>}
+                      {p.cmu && <span className="cr-pastille oa-pastille-cmu">CMU</span>}
                       {p.statut && <span className={classeStatut(reglages, p.statut)}>{p.statut}</span>}
                     </span>
                   </button>

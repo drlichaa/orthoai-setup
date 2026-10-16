@@ -517,6 +517,14 @@ export default function FichePatient({
                   </option>
                 ))}
               </select>
+              <label className="cr-case oa-case-cmu" title="Complémentaire santé solidaire">
+                <input
+                  type="checkbox"
+                  checked={Boolean(patient.cmu)}
+                  onChange={(e) => maj({ cmu: e.target.checked }, { immediat: true })}
+                />{" "}
+                CMU
+              </label>
               {/* L'appareil (type de traitement) n'est demandé que pour un patient en traitement. */}
               {patient.statut === STATUT_TRAITEMENT && (
                 <select

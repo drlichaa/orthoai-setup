@@ -14,7 +14,7 @@ import {
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scrypt } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { statutDepuisOrthofast } from "./correspondanceOrthofast.js";
+import { estCmuOrthofast, statutDepuisOrthofast } from "./correspondanceOrthofast.js";
 
 const PARAMETRES_SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const DELAI_VERROUILLAGE_MS = 30 * 60 * 1000;
@@ -322,6 +322,7 @@ export function creerHistorique(fichier) {
       lieu: p.lieu || "",
       alerte: Boolean(p.alerte),
       type: p.type,
+      cmu: Boolean(p.cmu),
       statut: p.statut,
       modifieLe: p.modifieLe,
       securiteSociale: p.securiteSociale,
@@ -375,6 +376,8 @@ export function creerHistorique(fichier) {
       miseEnAttente: texte(brut.miseEnAttente, 200),
       notesAdministratives: texte(brut.notesAdministratives),
       type: texte(brut.type, 100),
+      // Prise en charge CMU (Complémentaire santé solidaire).
+      cmu: brut.cmu === true,
       statut: texte(brut.statut, 100),
       debut: texte(brut.debut, 10),
       diagnostic: texte(brut.diagnostic),
@@ -772,6 +775,7 @@ export function creerHistorique(fichier) {
           if (deduit && statutNonModifie) patient.statut = deduit.statut;
           const typeNonModifie = !patient.type || patient.type === patient.orthofast?.typeImporte;
           if (deduit?.type && typeNonModifie) patient.type = deduit.type;
+          if (estCmuOrthofast(brut.typeTraitement)) patient.cmu = true;
           if (deduit) Object.assign(orthofast, { statutImporte: deduit.statut, typeImporte: deduit.type });
           const semestresImportes =
             patient.statut === "En traitement" && !patient.gestion?.semestres?.debut
@@ -799,6 +803,7 @@ export function creerHistorique(fichier) {
               lieu,
               statut: deduit?.statut || reglages.statuts[0]?.nom || "",
               type: deduit?.type || "",
+              cmu: estCmuOrthofast(brut.typeTraitement),
               orthofast,
               ...(deduit?.statut === "En traitement" && semestresDepuisOrthofast(brut)
                 ? { gestion: { semestres: semestresDepuisOrthofast(brut), phase: "actif" } }

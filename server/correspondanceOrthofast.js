@@ -47,6 +47,11 @@ function cle(valeur) {
 
 const TABLE = new Map(CORRESPONDANCES.map(([source, statut, type]) => [cle(source), { statut, type }]));
 
+// Patient CMU (Complémentaire santé solidaire) : « CMU METAL ENFANT », « CMU AMOVIBLE ENFANT »…
+export function estCmuOrthofast(typeTraitement) {
+  return /^cmu\b/.test(cle(typeTraitement));
+}
+
 // Statut et type OrthoAI pour une valeur OrthoFast ; null si la valeur est
 // inconnue ou si le statut n'existe pas dans les réglages du cabinet.
 export function statutDepuisOrthofast(typeTraitement, statutsDisponibles) {
