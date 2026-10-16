@@ -246,4 +246,6 @@ Page **Relances** (menu) : trois listes, filtrées par cabinet.
 
 **Envoyer un devis** : Devis & semestres → bouton « E-mail » du devis. Le modèle correspondant au traitement (métal, céramique, gouttières) est proposé, le devis est joint en PDF (`AAAAMMJJ_Code_DevisConventionnel.pdf`), d'autres fichiers peuvent être ajoutés. Après l'envoi, le devis est marqué « envoyé » et l'envoi est noté dans le dossier (date, destinataire, objet, pièces).
 
+**Envoyer un compte rendu ou un courrier** : bouton « E-mail » à côté de « Imprimer / PDF » (compte rendu de consultation), et sur chaque courrier ou ordonnance (consultation et dossier patient). Le document est joint en PDF, avec ses images. Destinataire : l'« E-mail du destinataire » saisi sur le courrier (confrère, modèle « Courrier pour un confrère »), sinon l'adresse du patient (modèle « Courrier remis au patient »). La consultation est enregistrée avant l'envoi pour que l'envoi soit noté dans le dossier.
+
 Le PDF est créé par l'application du cabinet (Electron) ; les tests automatiques utilisent un faux serveur de messagerie local (`ORTHOAI_SMTP_TEST`), jamais Gmail.

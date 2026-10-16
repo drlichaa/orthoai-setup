@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import EnvoiMail from "./EnvoiMail.jsx";
+import { modeleCourrier } from "./messagerie.js";
 import FriseTraitement from "./FriseTraitement.jsx";
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { flushSync } from "react-dom";
@@ -261,6 +263,7 @@ export default function FichePatient({
   // Photo ou radio agrandie depuis la colonne de la fiche clinique.
   const [apercu, setApercu] = useState(null);
   const [onglet, setOnglet] = useState(ongletInitial || "clinique");
+  const [courrierEnvoye, setCourrierEnvoye] = useState(null);
   // Courrier du dossier en cours d'impression (index).
   const [courrierImprime, setCourrierImprime] = useState(null);
   // Planche photos en cours d'impression.
@@ -786,6 +789,7 @@ export default function FichePatient({
                   courriers={patient.courriers}
                   onChange={(courriers) => maj({ courriers: courriers.map((c) => ({ date: aujourdhui(), ...c })) })}
                   onImprimer={imprimerCourrier}
+                  onEnvoyer={setCourrierEnvoye}
                   medias={images}
                   onJoindreImage={async (index, fichier) => {
                     // L'image annotée est rangée avec les autres, chiffrée, sans ligne de suivi.
@@ -1086,6 +1090,26 @@ export default function FichePatient({
         />
       )}
       {documentImprime}
+      {courrierEnvoye !== null && patient.courriers[courrierEnvoye] && (
+        <EnvoiMail
+          patient={patient}
+          cabinet={cabinet}
+          {...modeleCourrier(
+            patient.courriers[courrierEnvoye],
+            () => (
+              <CourrierDocument
+                courrier={patient.courriers[courrierEnvoye]}
+                patient={{ ...patient, date: patient.courriers[courrierEnvoye].date || aujourdhui() }}
+                cabinet={cabinetPatient}
+                resume={{ diagnostic: lignes(patient.diagnostic), traitement: lignes(patient.plan) }}
+              />
+            ),
+            patient,
+          )}
+          onFermer={() => setCourrierEnvoye(null)}
+          onEnvoye={({ gestion }) => gestion && majGestion({ mails: gestion.mails })}
+        />
+      )}
       {courrierAImprimer && (
         <CourrierDocument
           courrier={courrierAImprimer}

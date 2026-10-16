@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import EnvoiMail from "./EnvoiMail.jsx";
+import { modeleCourrier, nomDocument } from "./messagerie.js";
 import { flushSync } from "react-dom";
 import APPAREILS_PAR_DEFAUT from "./appareilsParDefaut.js";
 import ANCIENS_TEXTES from "./anciensTextes.js";
@@ -258,6 +260,8 @@ export default function ConsultationApp() {
   const [sauvegarde, setSauvegarde] = useState({ enCours: false, erreur: "", verrou: null });
   // Courrier en cours d'impression (index), sinon le compte rendu est imprimé.
   const [courrierImprime, setCourrierImprime] = useState(null);
+  // Envoi par e-mail du compte rendu (null) ou d'un courrier (index) : { index, patientId }.
+  const [envoiMail, setEnvoiMail] = useState(null);
 
   // Réglages du cabinet : lus sur le serveur au démarrage, puis renvoyés à chaque modification.
   const reglagesCharges = useRef(false);
@@ -400,7 +404,7 @@ export default function ConsultationApp() {
       setPatientId(fiche.patientId);
       setSignatureEnregistree(signature);
       setSauvegarde({ enCours: false, erreur: "", verrou: null });
-      return true;
+      return { patientId: fiche.patientId };
     } catch (err) {
       // Historique verrouillé (423) ou pas encore créé (404) : proposer le mot de passe.
       const verrou = err.statut === 423 || err.statut === 404 ? { existe: err.statut === 423 } : null;
@@ -419,6 +423,12 @@ export default function ConsultationApp() {
     flushSync(() => setCourrierImprime(indexCourrier));
     window.print();
     setCourrierImprime(null);
+  }
+
+  // Enregistre d'abord (pour rattacher l'envoi au dossier), puis ouvre la fenêtre d'envoi.
+  async function ouvrirEnvoi(index = null) {
+    const resultat = enregistre ? { patientId } : await enregistrerHistorique();
+    if (resultat) setEnvoiMail({ index, patientId: resultat.patientId || patientId });
   }
 
   const consultationEnCours = (rapport && !enregistre) || (!rapport && transcription.trim());
@@ -758,6 +768,9 @@ export default function ConsultationApp() {
                   >
                     {sauvegarde.enCours ? "Enregistrement…" : "Enregistrer dans l'historique"}
                   </button>
+                  <button type="button" className="secondaire" onClick={() => ouvrirEnvoi()}>
+                    E-mail
+                  </button>
                   <button type="button" className="principal" onClick={() => imprimer()}>
                     Imprimer / PDF
                   </button>
@@ -921,6 +934,7 @@ export default function ConsultationApp() {
                     courriers={rapport.courriers}
                     onChange={(courriers) => setRapport({ ...rapport, courriers })}
                     onImprimer={imprimer}
+                    onEnvoyer={ouvrirEnvoi}
                   />
                 </>
               )}
@@ -937,6 +951,43 @@ export default function ConsultationApp() {
               appareils={appareilsAffiches}
             />
           </div>
+        )}
+        {rapport && envoiMail && (
+          <EnvoiMail
+            patient={{ ...patient, id: envoiMail.patientId }}
+            cabinet={cabinet}
+            {...(envoiMail.index === null
+              ? {
+                  categorie: "Compte rendu",
+                  modeleInitial: "cr-patient",
+                  documents: [
+                    {
+                      nom: nomDocument(patient, "CompteRendu"),
+                      element: (
+                        <CompteRendu
+                          rapport={rapport}
+                          patient={patient}
+                          cabinet={cabinetPour(cabinet, patient.lieu)}
+                          appareils={appareilsAffiches}
+                        />
+                      ),
+                    },
+                  ],
+                }
+              : modeleCourrier(
+                  rapport.courriers[envoiMail.index],
+                  () => (
+                    <CourrierDocument
+                      courrier={rapport.courriers[envoiMail.index]}
+                      patient={patient}
+                      cabinet={cabinetPour(cabinet, patient.lieu)}
+                      resume={resumeClinique(rapport, appareilsAffiches)}
+                    />
+                  ),
+                  patient,
+                ))}
+            onFermer={() => setEnvoiMail(null)}
+          />
         )}
         {rapport?.courriers[courrierImprime] && (
           <CourrierDocument

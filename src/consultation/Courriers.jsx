@@ -8,6 +8,8 @@ export function CourriersEdition({
   courriers,
   onChange,
   onImprimer,
+  // Envoi par e-mail (index du courrier) ; absent : pas de bouton.
+  onEnvoyer,
   vide = "Aucun courrier proposé : aucun adressage n'a été évoqué pendant la consultation.",
   dater = false,
   // Dossier patient : images à joindre (annotées) aux courriers.
@@ -37,6 +39,11 @@ export function CourriersEdition({
               <button type="button" className="secondaire" onClick={() => onImprimer(i)}>
                 {TYPES_COURRIER[c.destinataire]?.ordonnance ? "Imprimer l'ordonnance" : "Imprimer ce courrier"}
               </button>
+              {onEnvoyer && (
+                <button type="button" className="secondaire" onClick={() => onEnvoyer(i)}>
+                  E-mail
+                </button>
+              )}
               <button type="button" className="danger" onClick={() => supprimer(i)}>
                 Supprimer
               </button>
@@ -57,6 +64,17 @@ export function CourriersEdition({
                 Objet
                 <input value={c.motif} onChange={(e) => modifier(i, "motif", e.target.value)} />
               </label>
+              {onEnvoyer && (
+                <label>
+                  E-mail du destinataire (sinon : patient)
+                  <input
+                    type="email"
+                    value={c.email_destinataire || ""}
+                    placeholder="dr.martin@exemple.fr"
+                    onChange={(e) => modifier(i, "email_destinataire", e.target.value)}
+                  />
+                </label>
+              )}
             </div>
           )}
           <label className="cr-bloc">

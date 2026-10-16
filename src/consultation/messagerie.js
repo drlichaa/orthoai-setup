@@ -1,6 +1,7 @@
 // Messagerie : modèles (remplacement des champs) et préparation des documents
 // joints (HTML autonome converti en PDF par le serveur du cabinet).
 import { renderToStaticMarkup } from "react-dom/server";
+import { TYPES_COURRIER } from "./modelesCourriers.js";
 
 export const CHAMPS_MODELES = [
   ["{prenom}", "Prénom du patient"],
@@ -52,4 +53,20 @@ export function fichierEnBase64(fichier) {
     lecteur.onerror = () => reject(new Error(`Lecture impossible : ${fichier.name}`));
     lecteur.readAsDataURL(fichier);
   });
+}
+
+// Envoi d'un courrier : modèle, destinataire (confrère ou patient) et document joint.
+export function modeleCourrier(courrier, rendreDocument, patient) {
+  const type = TYPES_COURRIER[courrier.destinataire];
+  const libelle = type?.ordonnance ? "Ordonnance" : `Courrier_${SANS_ACCENTS(type?.libelle || courrier.destinataire)}`;
+  return {
+    categorie: "Courrier",
+    modeleInitial: type?.ordonnance
+      ? "ordonnance"
+      : courrier.email_destinataire
+        ? "courrier-confrere"
+        : "courrier-patient",
+    ...(courrier.email_destinataire ? { destinataire: courrier.email_destinataire } : {}),
+    documents: [{ nom: nomDocument(patient, libelle, courrier.date || undefined), element: rendreDocument() }],
+  };
 }

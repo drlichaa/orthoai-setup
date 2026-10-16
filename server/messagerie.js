@@ -57,6 +57,28 @@ export const MODELES_PAR_DEFAUT = [
       "Bonjour,\n\nComme convenu, ci-joint votre courrier pour le chirurgien maxillo-facial.\n\nBien cordialement,",
   },
   {
+    id: "courrier-confrere",
+    categorie: "Courrier",
+    nom: "Courrier pour un confrère",
+    objet: "Courrier du {praticien} concernant {prenom} {nom}",
+    corps:
+      "Bonjour,\n\nVeuillez trouver ci-joint le courrier du {praticien} concernant {prenom} {nom}.\n\nBien cordialement,",
+  },
+  {
+    id: "courrier-patient",
+    categorie: "Courrier",
+    nom: "Courrier remis au patient",
+    objet: "Votre courrier - {praticien}",
+    corps: "Bonjour,\n\nComme convenu, veuillez trouver ci-joint votre courrier.\n\nBien cordialement,",
+  },
+  {
+    id: "ordonnance",
+    categorie: "Courrier",
+    nom: "Ordonnance",
+    objet: "Votre ordonnance - {praticien}",
+    corps: "Bonjour,\n\nVeuillez trouver ci-joint votre ordonnance.\n\nBien cordialement,",
+  },
+  {
     id: "rdv-refixer",
     categorie: "Rendez-vous",
     nom: "Refixer un rendez-vous",

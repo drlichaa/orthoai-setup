@@ -9,6 +9,7 @@ const MO = 1024 * 1024;
 
 export default function EnvoiMail({
   patient,
+  destinataire,
   cabinet,
   categorie,
   modeleInitial,
@@ -19,7 +20,13 @@ export default function EnvoiMail({
 }) {
   const [reglages, setReglages] = useState(null);
   const [erreurReglages, setErreurReglages] = useState("");
-  const [mail, setMail] = useState({ a: patient.email || "", cc: "", objet: "", corps: "", modele: "" });
+  const [mail, setMail] = useState({
+    a: destinataire || patient.email || "",
+    cc: "",
+    objet: "",
+    corps: "",
+    modele: "",
+  });
   const [joints, setJoints] = useState(documents.map((d) => ({ ...d, inclus: true })));
   const [fichiers, setFichiers] = useState([]);
   const [etat, setEtat] = useState({ enCours: false, erreur: "", ok: "" });
@@ -45,6 +52,11 @@ export default function EnvoiMail({
 
   useEffect(() => {
     let actif = true;
+    // Écran de consultation : l'adresse du patient est dans son dossier.
+    if (!destinataire && !patient.email && patient.id)
+      appelApi(`/patients/dossier/${patient.id}`)
+        .then(({ patient: p }) => actif && p?.email && setMail((m) => (m.a ? m : { ...m, a: p.email })))
+        .catch(() => {});
     appelApi("/patients/messagerie")
       .then(({ messagerie }) => {
         if (!actif) return;

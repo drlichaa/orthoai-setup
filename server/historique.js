@@ -388,6 +388,7 @@ export function creerHistorique(fichier) {
         motif: texte(c?.motif, 500),
         corps: texte(c?.corps),
         nom_destinataire: texte(c?.nom_destinataire, 500),
+        email_destinataire: texte(c?.email_destinataire, 300),
         sans_resume: Boolean(c?.sans_resume),
         image: /^[\w-]{1,100}$/.test(c?.image || "") ? c.image : "",
         ...(c?.auto ? { auto: texte(c.auto, 30) } : {}),
