@@ -676,3 +676,4 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-demander label { display: flex; flex-direction: column; gap: 10px; white-space: pre-line; font-weight: 600; margin-bottom: 16px; }
 .oa-demander input { font: inherit; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
 .oa-demander .cr-actions { justify-content: flex-end; }
+.cr-ajout-acte { margin-top: 4px; width: 100%; font-size: 0.85rem; }

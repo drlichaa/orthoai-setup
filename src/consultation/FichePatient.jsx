@@ -139,6 +139,16 @@ const FILS = [
   "Acier .019x.025",
 ];
 
+// « Ce que je ferai la prochaine fois » : actes ajoutés au texte (saisie libre possible).
+const ACTES_PROCHAINE = [
+  ["Arc supérieur", FILS.map((f) => `Arc sup. ${f}`)],
+  ["Arc inférieur", FILS.map((f) => `Arc inf. ${f}`)],
+  ["Chaînette", ["Chaînette sup.", "Chaînette inf.", "Chaînette sup. + inf."]],
+  ["Ressort", ["Ressort ouvert", "Ressort fermé"]],
+  ["Finitions", ["Finitions", "Finitions sup.", "Finitions inf.", "Dépose"]],
+];
+const ajouterActe = (texte, acte) => [String(texte || "").trim(), acte].filter(Boolean).join(", ");
+
 // Dossiers créés avant l'ajout de certains champs.
 const ARC_VIDE = { fil: "", depuis: "" };
 const DEFAUTS = {
@@ -799,6 +809,24 @@ export default function FichePatient({
                                   aria-label="Ce que je ferai la prochaine fois"
                                   onChange={(e) => majLigne("seances", i, "prochaine", e.target.value)}
                                 />
+                                <select
+                                  className="cr-ajout-acte"
+                                  value=""
+                                  aria-label="Ajouter un acte pour la prochaine fois"
+                                  onChange={(e) =>
+                                    e.target.value &&
+                                    majLigne("seances", i, "prochaine", ajouterActe(s.prochaine, e.target.value))
+                                  }
+                                >
+                                  <option value="">+ Ajouter : arc, chaînette, ressort, finitions…</option>
+                                  {ACTES_PROCHAINE.map(([groupe, actes]) => (
+                                    <optgroup key={groupe} label={groupe}>
+                                      {actes.map((a) => (
+                                        <option key={a}>{a}</option>
+                                      ))}
+                                    </optgroup>
+                                  ))}
+                                </select>
                               </td>
                               <td>
                                 <button
