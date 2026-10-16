@@ -75,7 +75,11 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
               ACCORD[q.accords?.enregistrement],
               q.accords?.enregistrement === "refuse",
             )}
-            {ligne("Départ seul après les soins", ACCORD[q.accords?.departSeul])}
+            {ligne(
+              "Départ seul après les soins",
+              ACCORD[q.accords?.departSeul],
+              q.accords?.departSeul === "refuse",
+            )}
           </tbody>
         </table>
       )}

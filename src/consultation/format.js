@@ -73,3 +73,13 @@ export function formaterPrenom(prenom) {
 
 // Statut pour lequel un appareil (type de traitement) est choisi.
 export const STATUT_TRAITEMENT = "En traitement";
+
+// Accords refusés dans le questionnaire médical, affichés en rouge en haut du dossier.
+export function refusQuestionnaire(q) {
+  const a = q?.accords || {};
+  return [
+    a.radiographies === "refuse" && "radiographies",
+    a.enregistrement === "refuse" && "enregistrement de la consultation",
+    a.departSeul === "refuse" && "départ seul après les soins",
+  ].filter(Boolean);
+}

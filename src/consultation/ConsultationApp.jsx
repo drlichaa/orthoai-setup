@@ -332,6 +332,9 @@ export default function ConsultationApp() {
     setTranscription((t) => (t ? `${t} ${texte}` : texte));
   }, []);
   const micro = useEnregistrement({ onTexte: ajouterTexte });
+  // Refus d'enregistrement noté dans le questionnaire : confirmation avant de démarrer.
+  const [confirmerRefus, setConfirmerRefus] = useState(false);
+  const demarrerMicro = () => (refusEnregistrement ? setConfirmerRefus(true) : micro.demarrer());
   const [whisper, setWhisper] = useState(null);
 
   useEffect(() => {
@@ -696,7 +699,7 @@ export default function ConsultationApp() {
               <button
                 type="button"
                 className={micro.enCours ? "cr-micro actif" : "cr-micro"}
-                onClick={micro.enCours ? micro.arreter : micro.demarrer}
+                onClick={micro.enCours ? micro.arreter : demarrerMicro}
                 disabled={!enregistrementDisponible}
               >
                 {micro.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
@@ -718,6 +721,29 @@ export default function ConsultationApp() {
                   ` · transcription de ${micro.enAttente} segment${micro.enAttente > 1 ? "s" : ""}…`}
               </span>
             </div>
+            {confirmerRefus && !micro.enCours && (
+              <div className="cr-alerte oa-confirmer-refus" role="alertdialog">
+                <p>
+                  <strong>⚠ Ce patient a refusé l'enregistrement de la consultation</strong> dans son questionnaire
+                  médical. Ne démarrez que s'il a donné son accord depuis.
+                </p>
+                <div className="cr-actions">
+                  <button type="button" className="secondaire" onClick={() => setConfirmerRefus(false)}>
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => {
+                      setConfirmerRefus(false);
+                      micro.demarrer();
+                    }}
+                  >
+                    Forcer l'enregistrement
+                  </button>
+                </div>
+              </div>
+            )}
             {micro.erreur && <p className="cr-alerte">{micro.erreur}</p>}
             {micro.echecs > 0 && (
               <p className="cr-alerte">
