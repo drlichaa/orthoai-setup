@@ -445,3 +445,34 @@ export function FicheGouttiereDocument({ patient, cabinet, depose }) {
     </article>
   );
 }
+
+export function FicheRecommandationsDocument({ patient, cabinet, appareils }) {
+  return (
+    <article className="cr-imprime-seul oa-doc oa-recommandations">
+      <EnteteCabinet
+        cabinet={cabinet}
+        titre={appareils.length === 1 ? `Recommandations — ${appareils[0].nom}` : "Recommandations pour vos appareils"}
+      />
+      <p className="oa-doc-patient">
+        Patient : <b>{[patient.prenom, patient.nom?.toUpperCase()].filter(Boolean).join(" ")}</b> · remis le{" "}
+        {new Date().toLocaleDateString("fr-FR")}
+      </p>
+      {appareils.map((a) => (
+        <section key={a.id} className="oa-doc-appareil">
+          {appareils.length > 1 && <h2>{a.nom}</h2>}
+          {String(a.texte || "")
+            .split(/\n{2,}/)
+            .filter((p) => p.trim())
+            .map((p, i) => (
+              <p key={i}>{p.trim()}</p>
+            ))}
+        </section>
+      ))}
+      <p className="oa-doc-centre">
+        Pour toute question ou en cas de problème avec l'appareil, contactez le cabinet
+        {cabinet.telephone ? ` au ${cabinet.telephone}` : ""}.
+      </p>
+      <footer className="oa-doc-pied">{cabinet.praticien}</footer>
+    </article>
+  );
+}

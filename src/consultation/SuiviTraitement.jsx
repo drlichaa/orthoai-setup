@@ -1,5 +1,6 @@
 // Onglet « Suivi du traitement » : progression, laboratoire, aligneurs,
 // rappels, incidents et chronologie du patient.
+import RecommandationsAppareil from "./RecommandationsAppareil.jsx";
 import { useState } from "react";
 import { formaterDate } from "./format.js";
 import {
@@ -130,9 +131,11 @@ function Progression({ patient, g, majGestion }) {
   );
 }
 
-function Laboratoire({ g, majGestion }) {
+function Laboratoire({ g, majGestion, patient, cabinet, catalogue, onImprimer }) {
   const liste = g.labo || [];
   const [ajout, setAjout] = useState(null);
+  // Fiche de recommandations de l'appareil posé.
+  const [fiche, setFiche] = useState(null);
   const majLigne = (id, modif) => majGestion({ labo: liste.map((l) => (l.id === id ? { ...l, ...modif } : l)) });
   const auj = aujourdhui();
   return (
@@ -212,10 +215,19 @@ function Laboratoire({ g, majGestion }) {
                       <input
                         type="checkbox"
                         checked={Boolean(l[cle])}
-                        onChange={(e) => majLigne(l.id, { [cle]: e.target.checked ? auj : "" })}
+                        onChange={(e) => {
+                          majLigne(l.id, { [cle]: e.target.checked ? auj : "" });
+                          // Appareil posé : fiche de recommandations proposée tout de suite.
+                          if (cle === "pose" && e.target.checked && onImprimer) setFiche(l.appareil);
+                        }}
                       />{" "}
                       {l[cle] ? formaterDate(l[cle]) : ""}
                     </label>
+                    {cle === "pose" && l.pose && onImprimer && (
+                      <button type="button" className="cr-lien oa-lien-fiche" onClick={() => setFiche(l.appareil)}>
+                        Fiche patient
+                      </button>
+                    )}
                   </td>
                 ))}
                 <td>
@@ -234,6 +246,17 @@ function Laboratoire({ g, majGestion }) {
             ))}
           </tbody>
         </table>
+      )}
+      {fiche !== null && (
+        <RecommandationsAppareil
+          patient={patient}
+          cabinet={cabinet}
+          catalogue={catalogue}
+          libelle={fiche}
+          onImprimer={onImprimer}
+          onEnvoye={({ gestion }) => gestion && majGestion({ mails: gestion.mails })}
+          onFermer={() => setFiche(null)}
+        />
       )}
     </section>
   );
@@ -475,14 +498,21 @@ function Chronologie({ patient, g }) {
   );
 }
 
-export default function SuiviTraitement({ patient, majGestion }) {
+export default function SuiviTraitement({ patient, majGestion, cabinet, catalogue = [], onImprimer }) {
   const g = patient.gestion || {};
   return (
     <>
       <div className="oa-colonnes">
         <div>
           <Progression patient={patient} g={g} majGestion={majGestion} />
-          <Laboratoire g={g} majGestion={majGestion} />
+          <Laboratoire
+            g={g}
+            majGestion={majGestion}
+            patient={patient}
+            cabinet={cabinet}
+            catalogue={catalogue}
+            onImprimer={onImprimer}
+          />
           <Aligneurs g={g} majGestion={majGestion} />
         </div>
         <div>

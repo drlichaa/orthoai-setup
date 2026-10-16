@@ -582,6 +582,7 @@ export default function FichePatient({
                 datePremiere={datePremiere}
                 onImprimer={imprimerDocument}
                 onOnglet={setOnglet}
+                catalogue={appareils}
               />
               <section className="cr-carte">
                 <h2>Traitement en cours</h2>
@@ -999,7 +1000,15 @@ export default function FichePatient({
           />
         )}
 
-        {onglet === "suivi" && <SuiviTraitement patient={patient} majGestion={majGestion} />}
+        {onglet === "suivi" && (
+          <SuiviTraitement
+            patient={patient}
+            majGestion={majGestion}
+            cabinet={cabinetPatient}
+            catalogue={appareils}
+            onImprimer={imprimerDocument}
+          />
+        )}
 
         {onglet === "images" && (
           <>

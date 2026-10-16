@@ -276,3 +276,7 @@ Patients → « Questionnaire WeClever (PDF) » (crée ou complète un dossier),
 - Refus d'enregistrement de la consultation : avertissement à côté du bouton « Démarrer » de la consultation de ce patient.
 - Le PDF est rangé chiffré dans le dossier (« Ouvrir le PDF » dans l'onglet Patient).
 - Tests : faux questionnaires générés (patients inventés), jamais de vrais.
+
+## Fiches de recommandations (pose d'appareil)
+
+À la validation de « Pose effectuée » (Parcours), la fenêtre « Fiche de recommandations » s'ouvre : les fiches de l'appareil posé sont cochées d'après le devis (métal, céramique, gouttières) ou le type du patient — avec « Recommandations avec les bagues » pour un multi-attaches — et peuvent être ajustées. « Imprimer » ou « Envoyer par e-mail (PDF) » (modèle « Fiche de recommandations »). Le bouton reste disponible dans l'étape Pose. Même chose dans Suivi du traitement → Laboratoire : cocher « Posé » propose la fiche de cet appareil (lien « Fiche patient »). Les textes sont ceux du catalogue des appareils (Paramètres).

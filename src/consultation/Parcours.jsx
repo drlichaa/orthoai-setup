@@ -5,6 +5,7 @@ import { useState } from "react";
 import { appelApi } from "./apiHistorique.js";
 import { ConsentementDocument, FicheGouttiereDocument } from "./DocumentsGestion.jsx";
 import EnvoiMail from "./EnvoiMail.jsx";
+import RecommandationsAppareil from "./RecommandationsAppareil.jsx";
 import { formaterDate } from "./format.js";
 import {
   CONTROLES_CONTENTION,
@@ -92,7 +93,16 @@ const demanderDate = (question, defaut) => {
   return iso || null;
 };
 
-export default function Parcours({ patient, maj, majGestion, cabinet, datePremiere, onImprimer, onOnglet }) {
+export default function Parcours({
+  patient,
+  maj,
+  majGestion,
+  cabinet,
+  datePremiere,
+  onImprimer,
+  onOnglet,
+  catalogue = [],
+}) {
   const g = patient.gestion || {};
   const e = etatParcours(patient, g, datePremiere);
   const enfant = consentementEnfant(patient, datePremiere);
@@ -100,6 +110,8 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
   const [blocage, setBlocage] = useState(null);
   const [motif, setMotif] = useState("");
   const [copie, setCopie] = useState("");
+  // Fiche de recommandations, proposée dès la pose validée.
+  const [recommandations, setRecommandations] = useState(false);
   const majParcours = (modif) => majGestion({ parcours: { ...(g.parcours || {}), ...modif } });
   const majRdv = (modif) => majParcours({ rdv: { ...(g.parcours?.rdv || {}), ...modif } });
   const devis = (g.devis || []).find((d) => d.valide) || (g.devis || []).at(-1);
@@ -163,6 +175,7 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
     );
     setBlocage(null);
     setMotif("");
+    setRecommandations(true);
   }
   function demanderPose() {
     const date = demanderDate("Date de la pose de l'appareil (JJ/MM/AAAA) :", e.rdv.pose);
@@ -296,10 +309,17 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
         actuelle={etapeActuelle === 3}
       >
         {e.pose ? (
-          <p>
-            Appareil posé le <b>{formaterDate(e.pose)}</b>
-            {e.poseReprise && " (traitement repris, sans contrôle du bilan)"} : le 1er semestre commence ce jour-là.
-          </p>
+          <>
+            <p>
+              Appareil posé le <b>{formaterDate(e.pose)}</b>
+              {e.poseReprise && " (traitement repris, sans contrôle du bilan)"} : le 1er semestre commence ce jour-là.
+            </p>
+            <div className="cr-actions">
+              <button type="button" className="secondaire" onClick={() => setRecommandations(true)}>
+                Fiche de recommandations (PDF)
+              </button>
+            </div>
+          </>
         ) : (
           <>
             <label className="oa-parcours-champ">
@@ -468,6 +488,16 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
         )}
       </Etape>
 
+      {recommandations && (
+        <RecommandationsAppareil
+          patient={patient}
+          cabinet={cabinet}
+          catalogue={catalogue}
+          onImprimer={onImprimer}
+          onEnvoye={({ gestion }) => gestion && majGestion({ mails: gestion.mails })}
+          onFermer={() => setRecommandations(false)}
+        />
+      )}
       {envoi && (
         <EnvoiMail
           patient={patient}

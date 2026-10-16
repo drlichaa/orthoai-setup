@@ -666,3 +666,8 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-visionneuse-pages { display: flex; flex-direction: column; gap: 10px; background: #f1f5f9; padding: 10px; border-radius: 10px; }
 .oa-visionneuse-pages img { width: 100%; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
 .oa-bouton-lien { display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid var(--cr-bord); border-radius: 8px; text-decoration: none; color: var(--cr-texte); font-weight: 600; background: #fff; }
+.oa-reco-liste { list-style: none; margin: 8px 0 12px; padding: 0; columns: 2; }
+.oa-reco-liste li { break-inside: avoid; margin-bottom: 4px; }
+.oa-doc-appareil h2 { text-align: left; }
+@media (max-width: 700px) { .oa-reco-liste { columns: 1; } }
+.oa-lien-fiche { display: block; font-size: 0.85rem; margin-top: 2px; }

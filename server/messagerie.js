@@ -112,6 +112,14 @@ Bien cordialement,
 L'équipe du cabinet d'orthodontie`,
   },
   {
+    id: "recommandations",
+    categorie: "Courrier",
+    nom: "Fiche de recommandations (pose d'appareil)",
+    objet: "Recommandations pour votre appareil - {praticien}",
+    corps:
+      "Bonjour,\n\nSuite à la pose de l'appareil, veuillez trouver ci-joint la fiche de recommandations à conserver.\n\nN'hésitez pas à contacter le cabinet pour toute question.\n\nBien cordialement,",
+  },
+  {
     id: "rdv-refixer",
     categorie: "Rendez-vous",
     nom: "Refixer un rendez-vous",
