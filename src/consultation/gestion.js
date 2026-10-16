@@ -774,6 +774,52 @@ function echeancesParcours(p, g, auj, ajouter) {
   }
 }
 
+// Plan du dossier (« - Disjoncteur\n- Multi-attaches\n- Durée estimée : 18 mois ») sur une
+// seule ligne pour la DEP : « Disjoncteur + Multi-attaches – durée estimée : 18 mois ».
+export function planPourDep(plan) {
+  const lignes = String(plan || "")
+    .split("\n")
+    .map((l) =>
+      l
+        .replace(/^\s*[-•*]\s*/, "")
+        .trim()
+        .replace(/\.$/, ""),
+    )
+    .filter(Boolean);
+  const duree = lignes.filter((l) => /^durée/i.test(l)).map((l) => l[0].toLowerCase() + l.slice(1));
+  return [lignes.filter((l) => !/^durée/i.test(l)).join(" + "), ...duree].filter(Boolean).join(" – ");
+}
+
+// Facteurs fonctionnels de la DEP : déduits du diagnostic, du plan et du questionnaire médical.
+export function facteursFonctionnels(patient) {
+  const t = [patient.diagnostic, patient.plan, patient.notes]
+    .filter((x) => typeof x === "string")
+    .join("\n")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const q = patient.questionnaire || {};
+  const facteurs = [];
+  const si = (condition, libelle) => condition && !facteurs.includes(libelle) && facteurs.push(libelle);
+  si(/ventilation (buccale|orale|mixte)|respiration buccale|respire (par )?la bouche/.test(t), "Ventilation buccale");
+  si(
+    (q.orl || []).some((o) => /bouche/i.test(o)),
+    "Ventilation buccale",
+  );
+  si(
+    /deglutition (atypique|dysfonctionnelle|primaire|infantile)|interposition linguale/.test(t),
+    "Déglutition atypique",
+  );
+  si(q.deglutition === "Oui", "Déglutition atypique");
+  si(/mastication unilaterale/.test(t), "Mastication unilatérale");
+  const succion = ["Pouce", "Doigt", "Tétine"].includes(q.succion) ? q.succion.toLowerCase() : "";
+  si(Boolean(succion), `Succion (${succion})`);
+  si(!succion && /succion|pouce|tetine/.test(t), "Succion");
+  si(/phonation|sigmatisme|zozot|zezai/.test(t) || q.elocution === "Oui", "Phonation");
+  si((q.orl || []).some((o) => /ronfl/i.test(o)) || /ronfl|apnee/.test(t), "Ronflements");
+  return facteurs.join(", ");
+}
+
 // DEP pré-remplie depuis le diagnostic du dossier (texte libre « Sens transversal : … »).
 export function depDepuisDiagnostic(texte) {
   const t = String(texte || "")
