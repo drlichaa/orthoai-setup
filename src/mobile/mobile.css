@@ -1,0 +1,62 @@
+/* OrthoAI sur iPhone (Pro Max : 430 px de large). */
+:root { --m-fond: #f3f5fa; --m-bleu: #2f6fe4; --m-nuit: #0f1b3d; }
+html, body { margin: 0; background: var(--m-fond); -webkit-text-size-adjust: 100%; }
+.m-app { min-height: 100vh; display: flex; flex-direction: column; font-size: 17px; }
+.m-entete { position: sticky; top: 0; z-index: 5; display: flex; justify-content: space-between; align-items: center; padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: var(--m-nuit); color: #fff; }
+.m-entete a { color: #c7d2fe; font-size: 0.85rem; text-decoration: none; }
+.m-contenu { flex: 1; padding: 12px 14px calc(env(safe-area-inset-bottom) + 84px); }
+.m-onglets { position: fixed; bottom: 0; left: 0; right: 0; z-index: 5; display: grid; grid-template-columns: repeat(3, 1fr); background: #fff; border-top: 1px solid #e2e8f0; padding-bottom: env(safe-area-inset-bottom); }
+.m-onglets button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 6px; border: 0; background: none; font: inherit; font-size: 0.72rem; font-weight: 600; color: #64748b; }
+.m-onglets button.actif { color: var(--m-bleu); }
+.m-icone { font-size: 1.35rem; line-height: 1; }
+.m-badge { position: absolute; top: 4px; left: 58%; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #e11d48; color: #fff; font-size: 0.7rem; line-height: 18px; }
+.m-aide { color: #64748b; font-size: 0.85rem; margin: 6px 2px; }
+.m-vide { text-align: center; color: #94a3b8; padding: 30px 0; }
+.m-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.m-barre-date { display: grid; grid-template-columns: 48px 1fr 48px; gap: 8px; }
+.m-barre-date button { min-height: 44px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; font: inherit; font-weight: 700; font-size: 1.1rem; color: var(--m-nuit); }
+.m-barre-date .m-date { font-size: 1rem; text-transform: capitalize; }
+.m-rdv { background: #fff; border-radius: 14px; border-left: 8px solid; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08); overflow: hidden; }
+.m-rdv.annule { opacity: 0.5; }
+.m-rdv.annule .m-rdv-texte b { text-decoration: line-through; }
+.m-rdv-corps { width: 100%; display: grid; grid-template-columns: 58px 1fr; gap: 10px; padding: 10px 12px; border: 0; background: none; font: inherit; text-align: left; color: inherit; }
+.m-rdv-heure { font-weight: 800; font-size: 1.05rem; }
+.m-rdv-heure small { display: block; font-weight: 400; color: #94a3b8; font-size: 0.8rem; }
+.m-rdv-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.m-rdv-texte small { color: #64748b; font-size: 0.8rem; }
+.m-pastille { align-self: flex-start; max-width: 100%; padding: 2px 8px; border-radius: 8px; font-size: 0.78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-rdv-actions { display: flex; gap: 6px; padding: 0 12px 10px 80px; flex-wrap: wrap; }
+.m-rdv-actions a, .m-rdv-actions button { min-height: 34px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; font: inherit; font-size: 0.8rem; font-weight: 600; color: #334155; text-decoration: none; display: inline-flex; align-items: center; }
+.m-rdv-actions button.actif { background: var(--m-bleu); border-color: var(--m-bleu); color: #fff; }
+.m-recherche { width: 100%; box-sizing: border-box; min-height: 46px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 12px; font: inherit; font-size: 1rem; background: #fff; }
+.m-ligne { width: 100%; text-align: left; padding: 12px 14px; border: 0; border-radius: 12px; background: #fff; font: inherit; color: inherit; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+.m-ligne b { display: block; }
+.m-ligne small { color: #64748b; font-size: 0.82rem; }
+.m-fiche h2 { margin: 6px 0 0; font-size: 1.4rem; }
+.m-retour { border: 0; background: none; color: var(--m-bleu); font: inherit; font-weight: 600; padding: 4px 0; }
+.m-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.m-chip { padding: 3px 10px; border-radius: 12px; background: #e0e7ff; color: #3730a3; font-size: 0.8rem; font-weight: 600; }
+.m-alerte { margin: 6px 0; }
+.m-contacts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.m-contacts a { min-height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: #fff; border: 1px solid #e2e8f0; font-weight: 600; font-size: 0.9rem; color: var(--m-nuit); text-decoration: none; }
+.m-carte { background: #fff; border-radius: 14px; padding: 12px 14px; margin: 10px 0; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+.m-carte h3 { margin: 0 0 8px; font-size: 0.95rem; color: #475569; }
+.m-carte p { margin: 4px 0; }
+.m-carte ul { margin: 0; padding-left: 18px; }
+.m-carte .oa-frise-tt { padding: 6px; border: 0; }
+.m-carte .oa-frise-barre { grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)) !important; }
+.m-carte .oa-frise-date { font-size: 0.62rem; }
+.m-seance { display: flex; flex-direction: column; padding: 6px 0; border-top: 1px solid #f1f5f9; }
+.m-seance:first-of-type { border-top: 0; }
+.m-seance span { white-space: pre-line; font-size: 0.9rem; }
+.m-seance small { color: #64748b; }
+.m-pre { white-space: pre-line; font-size: 0.9rem; }
+.m-segments { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: #e2e8f0; border-radius: 12px; margin-bottom: 10px; }
+.m-segments button { min-height: 36px; border: 0; border-radius: 9px; background: none; font: inherit; font-weight: 600; font-size: 0.9rem; color: #475569; }
+.m-segments button.actif { background: #fff; color: var(--m-nuit); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12); }
+.m-tache { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: #fff; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+.m-tache > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-tache small { color: #64748b; font-size: 0.8rem; }
+.m-tache > button { flex: none; min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--m-bleu); color: #fff; font: inherit; font-weight: 700; font-size: 0.85rem; }
+.m-lien { border: 0; background: none; padding: 0; color: var(--m-bleu); font: inherit; font-weight: 700; text-align: left; text-decoration: none; }
+.m-app .cr-carte { margin: 0; }

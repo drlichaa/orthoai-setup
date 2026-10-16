@@ -296,3 +296,13 @@ Menu « Planning » : semaine du cabinet du Chesnay sur deux fauteuils — **fau
 - Clic sur un créneau : nouveau RDV (motif proposé selon la plage), patient choisi parmi les dossiers ou nouveau patient (nom, téléphone). Chevauchement et hors plage signalés. Statut : prévu, venu, absent, annulé.
 - Un RDV de pose, de dépose ou « FACTURATION + suivi » relié à un dossier renseigne la date prévue dans son parcours (messages 3 jours avant).
 - Les rendez-vous sont rangés dans le coffre chiffré.
+
+## OrthoAI sur iPhone
+
+Version pour téléphone (`/mobile.html`, ouverte d'office sur un téléphone ; « Version complète » pour revenir à l'application) :
+
+- **Aujourd'hui** : rendez-vous du jour des deux fauteuils (couleurs des motifs), boutons Venu / Absent / Annulé, appel du patient ; jour précédent ou suivant.
+- **Patients** : recherche, puis le dossier en un écran — alerte, étape du parcours, appel / SMS / e-mail, prochain RDV, frise des semestres, ce qui manque avant la pose, dernières séances, diagnostic et plan.
+- **Tâches** : tâches à faire (« Fait ») et relances (« Relancé »), avec le nombre en pastille.
+
+Installation : iPhone → app Tailscale (compte du cabinet) → Safari, adresse habituelle d'OrthoAI → Partager → « Sur l'écran d'accueil ». Mêmes données, même coffre chiffré et même mot de passe que l'application.

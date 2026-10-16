@@ -11,6 +11,7 @@ export default defineConfig({
         main: resolve(import.meta.dirname, 'index.html'),
         consultation: resolve(import.meta.dirname, 'consultation.html'),
         accueil: resolve(import.meta.dirname, 'accueil.html'),
+        mobile: resolve(import.meta.dirname, 'mobile.html'),
       },
     },
   },

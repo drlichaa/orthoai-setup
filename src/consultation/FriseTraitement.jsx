@@ -36,7 +36,7 @@ export default function FriseTraitement({ patient, gestion, compacte = false }) 
             >
               <span className="oa-frise-rempli" style={{ width: `${s.remplissage * 100}%` }} />
               {etat === "courant" && <span className="oa-frise-auj" style={{ left: `${s.remplissage * 100}%` }} />}
-              <span className="oa-frise-date">{formaterDate(s.debut)}</span>
+              <span className="oa-frise-date">{compacte ? formaterDate(s.debut).slice(0, 5) : formaterDate(s.debut)}</span>
               <span className="oa-frise-num">{s.libelle}</span>
               {secu && (s.dep || (s.debut <= auj && !s.aVerifier)) && (
                 <span className={`oa-frise-dep ${s.dep ? "faite" : "due"}`} aria-label={infoDep(s)} />
