@@ -61,11 +61,13 @@ export const TRAITEMENTS = [
 export const BAREME_PAR_DEFAUT = {
   semestre: { interception: 980, metal: 980, ceramique: 1080, aligneurs: 1750 },
   contention: 750,
-  diagnostic: 200,
+  // Bilan orthodontique (facturé le jour du bilan) : TO5 + TO15.
+  bilan: { standard: { to5: 50, to15: 150 }, aligneurs: { to5: 150, to15: 200 } },
   surveillance: 100,
   // Cotations et bases Assurance maladie (devis « avec prise en charge »).
   secu: {
-    diagnostic: { code: "TO15+5", base: 43, rembourse: 25.8 },
+    to5: { code: "TO5", base: 10.75, rembourse: 6.45 },
+    to15: { code: "TO15", base: 32.25, rembourse: 19.35 },
     semestre: { code: "TO90", base: 193.5, rembourse: 193.5 },
     contention: { code: "TO75", base: 161.25, rembourse: 161.25 },
     surveillance: { code: "TO10", base: 21.5, rembourse: 12.9 },
@@ -80,6 +82,10 @@ export function bareme(cabinet) {
     ...BAREME_PAR_DEFAUT,
     ...b,
     semestre: { ...BAREME_PAR_DEFAUT.semestre, ...(b.semestre || {}) },
+    bilan: {
+      standard: { ...BAREME_PAR_DEFAUT.bilan.standard, ...(b.bilan?.standard || {}) },
+      aligneurs: { ...BAREME_PAR_DEFAUT.bilan.aligneurs, ...(b.bilan?.aligneurs || {}) },
+    },
     secu: {
       ...BAREME_PAR_DEFAUT.secu,
       ...Object.fromEntries(Object.entries(b.secu || {}).map(([k, v]) => [k, { ...BAREME_PAR_DEFAUT.secu[k], ...v }])),
@@ -104,8 +110,22 @@ export const AUTOMATISATIONS = [
     "Renouvellement de la DEP",
     "Une tâche 5 mois après le début de chaque semestre, pour préparer la DEP suivante.",
   ],
-  ["nonRevu", "Patients non revus", "Une tâche si un patient en traitement n'est pas venu depuis le délai choisi."],
+  [
+    "nonRevu",
+    "Patients non revus",
+    "« Rappeler le patient » si un patient en traitement n'est pas venu depuis 12 semaines (réglable dans le dossier).",
+  ],
   ["rappel", "Patients à rappeler", "Une tâche à la date du rappel programmé dans le dossier."],
+  [
+    "message",
+    "Messages aux patients",
+    "« Envoyer le message de facturation » 3 jours avant la pose et chaque semestre, « message de dépose » 3 jours avant la dépose.",
+  ],
+  [
+    "contention",
+    "Contrôles de contention",
+    "Contrôle 1 mois après la dépose, puis tous les 4 mois pendant la première année.",
+  ],
   ["labo", "Appareils en retard", "Une tâche si un appareil commandé n'est pas reçu à la date prévue."],
 ];
 
@@ -136,7 +156,11 @@ export function lignesDevis(
   b,
 ) {
   const lignes = [];
-  if (diagnostic) lignes.push(ligne("Diagnostic", b.diagnostic, b.secu.diagnostic, regime));
+  if (diagnostic) {
+    const bilan = montantsBilan(traitement, b);
+    lignes.push(ligne("Bilan orthodontique (TO5)", bilan.to5, b.secu.to5, regime));
+    lignes.push(ligne("Bilan orthodontique (TO15)", bilan.to15, b.secu.to15, regime));
+  }
   if (traitement === "surveillance") {
     for (let i = 0; i < Math.max(1, semestres); i++)
       lignes.push(ligne(`Surveillance ${i + 1}`, b.surveillance, b.secu.surveillance, regime));
@@ -152,6 +176,11 @@ export function lignesDevis(
   if (surveillance && traitement !== "surveillance")
     lignes.push(ligne("Surveillance 1", b.surveillance, b.secu.surveillance, regime));
   return lignes;
+}
+
+// Bilan : 200 € (interception, bagues), 350 € pour les gouttières.
+export function montantsBilan(traitement, b = BAREME_PAR_DEFAUT) {
+  return traitement === "aligneurs" ? b.bilan.aligneurs : b.bilan.standard;
 }
 
 export function totauxDevis(lignes) {
@@ -356,15 +385,19 @@ export function echeancesPatient(p, auj = aujourdhui()) {
   for (const d of g.deps || []) {
     if (!d.envoyee) ajouter(`envoi-${d.id}`, "depEnvoi", `Envoyer la ${libelleDep(d)}`, d.date);
   }
-  const delai = Number(g.nonRevuMois) || 0;
-  const derniere = derniereVisite(p.seances, g);
-  if (delai > 0 && derniere && EN_TRAITEMENT.test(p.statut || "") && ajouterMois(derniere, delai) <= auj)
+  echeancesParcours(p, g, auj, ajouter);
+  // Non revu : séances saisies dans OrthoAI seulement (suivi OrthoFast : pas de fausse alerte).
+  const semaines = nonRevuSemaines(g);
+  const seances = (p.seances || []).map(isoDepuisFr).filter(Boolean).sort();
+  const derniere = seances.at(-1);
+  const enSuivi = EN_TRAITEMENT.test(p.statut || "") && !["contention", "suspension"].includes(g.phase);
+  if (semaines > 0 && derniere && enSuivi && ajouterJours(derniere, semaines * 7) <= auj)
     ajouter(
       `nonrevu-${derniere}`,
       "nonRevu",
-      `Non revu depuis ${delai} mois`,
-      ajouterMois(derniere, delai),
-      `Dernière visite le ${derniere.split("-").reverse().join("/")}`,
+      "Rappeler le patient",
+      ajouterJours(derniere, semaines * 7),
+      `Non revu depuis ${semaines} semaines (dernière visite le ${derniere.split("-").reverse().join("/")})`,
     );
   if (g.rappel?.date && !g.rappel.fait && g.rappel.date <= auj)
     ajouter(`rappel-${g.rappel.date}`, "rappel", "Rappeler le patient", g.rappel.date, g.rappel.motif || "");
@@ -382,6 +415,13 @@ export function libelleDep(d) {
   return `DEP des semestres ${n} et ${n + 1}`;
 }
 
+// Délai « non revu » en semaines (12 par défaut ; ancien réglage en mois converti ; 0 = désactivé).
+export function nonRevuSemaines(g) {
+  if (g?.nonRevuSemaines != null) return Number(g.nonRevuSemaines) || 0;
+  if (Number(g?.nonRevuMois) > 0) return Math.round(Number(g.nonRevuMois) * 4.3);
+  return 12;
+}
+
 export const TYPES_ECHEANCES = {
   facturation: "À facturer",
   dep: "DEP à faire",
@@ -389,6 +429,8 @@ export const TYPES_ECHEANCES = {
   depRenouvellement: "DEP à renouveler",
   nonRevu: "Non revus",
   rappel: "À rappeler",
+  message: "Messages à envoyer",
+  contention: "Contention",
   labo: "Laboratoire",
 };
 
@@ -497,7 +539,7 @@ export const DEP_CASES = {
 
 // ----- Relances (devis, attente, suivi) -----
 
-export const RELANCES_PAR_DEFAUT = { devisMois: 1, attenteMois: 12, suiviMois: 3 };
+export const RELANCES_PAR_DEFAUT = { devisMois: 1, attenteMois: 12, suiviSemaines: 12 };
 
 export function delaisRelances(cabinet) {
   return { ...RELANCES_PAR_DEFAUT, ...(cabinet?.relances || {}) };
@@ -506,7 +548,7 @@ export function delaisRelances(cabinet) {
 export const TYPES_RELANCES = {
   devis: { titre: "Devis à relancer", delai: "devisMois", depuis: "Devis du" },
   attente: { titre: "Patients en attente (trop tôt) à revoir", delai: "attenteMois", depuis: "En attente depuis le" },
-  suivi: { titre: "Patients en traitement non revus", delai: "suiviMois", depuis: "Dernière séance le" },
+  suivi: { titre: "Patients en traitement non revus", delai: "suiviSemaines", depuis: "Dernière séance le" },
 };
 
 const dateValide = (v) => (/^\d{4}-\d{2}-\d{2}/.test(v || "") ? v.slice(0, 10) : isoDepuisFr(v || ""));
@@ -527,7 +569,9 @@ export function relancesPatient(p, delais, auj = aujourdhui()) {
         .sort()
         .at(-1) || "";
     const depart = derniere > reference ? derniere : reference;
-    const echeance = ajouterMois(depart, Number(delais[TYPES_RELANCES[type].delai]) || 0);
+    const cle = TYPES_RELANCES[type].delai;
+    const n = Number(delais[cle]) || 0;
+    const echeance = cle.endsWith("Semaines") ? ajouterJours(depart, n * 7) : ajouterMois(depart, n);
     if (echeance <= auj) liste.push({ type, reference, echeance, derniereRelance: derniere, detail });
   };
 
@@ -562,4 +606,223 @@ export function relancesPatient(p, delais, auj = aujourdhui()) {
 // Patients en traitement dont aucune séance n'est saisie dans OrthoAI (suivi tenu dans OrthoFast).
 export function sansSeance(p) {
   return EN_COURS_DE_TRAITEMENT.test(p.statut || "") && !(p.seances || []).some((s) => dateValide(s));
+}
+
+// ----- Parcours de traitement : consultation → bilan → pose → suivi → dépose / contention -----
+
+export const ANS_16 = 192; // mois
+
+function dateDeDep(g, nature) {
+  return (g.deps || [])
+    .filter((d) => d.nature === nature)
+    .map((d) => d.date)
+    .sort()[0];
+}
+
+// Prise en charge attendue : devis validé (sinon dernier devis), sinon âge à la 1ère consultation.
+export function priseEnChargePrevue(patient, g, datePremiere) {
+  const devis = (g.devis || []).find((d) => d.valide) || (g.devis || []).at(-1);
+  if (devis) return devis.regime !== "hn";
+  if (g.semestres?.debut) return priseEnChargeSecu(patient, g);
+  return regimeParDefaut(patient.naissance, datePremiere, BAREME_PAR_DEFAUT) === "secu";
+}
+
+// Consentement « enfant » : moins de 16 ans à la 1ère consultation.
+export function consentementEnfant(patient, datePremiere) {
+  return regimeParDefaut(patient.naissance, datePremiere, BAREME_PAR_DEFAUT) === "secu";
+}
+
+export function etatParcours(patient, g, datePremiere, auj = aujourdhui()) {
+  const p = g.parcours || {};
+  const secu = priseEnChargePrevue(patient, g, datePremiere);
+  const devisSigne = (g.devis || []).find((d) => d.valide)?.valide || p.devisSigne || "";
+  const depDebut = dateDeDep(g, "debut") || p.depDebut || "";
+  // Traitement déjà en cours (import OrthoFast, ou semestres créés avant le parcours) : pose reprise.
+  const poseReprise = !p.pose && Boolean(g.semestres?.debut);
+  const pose = p.pose || (poseReprise ? g.semestres.debut : "");
+  const manquants = [
+    ...(secu && !depDebut ? ["DEP « Début de traitement » imprimée"] : []),
+    ...(!devisSigne ? ["Devis signé"] : []),
+    ...(!p.consentement ? ["Consentement éclairé signé"] : []),
+  ];
+  const alertes = [];
+  if (secu && !pose && patient.naissance) {
+    const seize = ajouterMois(patient.naissance, ANS_16);
+    if (seize <= auj)
+      alertes.push(`16 ans le ${formaterIso(seize)} sans pose : la prise en charge n'est plus possible.`);
+    else if (ajouterMois(seize, -6) <= auj)
+      alertes.push(`16 ans le ${formaterIso(seize)} : la pose doit avoir lieu avant pour la prise en charge.`);
+  }
+  if (secu && depDebut && !pose) {
+    const dep = (g.deps || []).find((d) => d.nature === "debut");
+    const reference = dep?.accord || dep?.envoyee || depDebut;
+    if (ajouterMois(reference, 5) <= auj)
+      alertes.push(
+        `DEP du ${formaterIso(reference)} : plus de 5 mois sans pose (le traitement doit commencer dans les 6 mois suivant l'accord).`,
+      );
+  }
+  return { ...p, secu, devisSigne, depDebut, pose, poseReprise, manquants, alertes, rdv: p.rdv || {} };
+}
+
+const formaterIso = (iso) => (iso ? iso.split("-").reverse().join("/") : "");
+
+// Pose de l'appareil : le 1er semestre commence ce jour-là (montants du devis validé).
+export function gestionApresPose(g, date, derogation = null) {
+  const devis = (g.devis || []).find((d) => d.valide) || (g.devis || []).at(-1);
+  const lignes = devis?.lignes || [];
+  const montants = lignes.filter((l) => /semestre/i.test(l.libelle)).map((l) => Number(l.honoraires) || 0);
+  return {
+    semestres: {
+      debut: date,
+      nombre: montants.length || Number(devis?.semestres) || 6,
+      montants,
+      contention: lignes.find((l) => /contention/i.test(l.libelle))?.honoraires ?? null,
+      devisId: devis?.id || "",
+      factures: {},
+    },
+    phase: "actif",
+    parcours: {
+      ...(g.parcours || {}),
+      pose: date,
+      ...(derogation ? { derogations: [...(g.parcours?.derogations || []), derogation] } : {}),
+    },
+  };
+}
+
+// Contention : 750 € à la dépose ; enfant : carte Vitale (TO75) à la fin de l'année de contention ;
+// adulte : HN (TO75), facturé à la fin du dernier semestre.
+export function libelleContention(secu, montant = BAREME_PAR_DEFAUT.contention) {
+  return secu ? `${euros(montant)} (TO75)` : `${euros(montant)} HN (TO75)`;
+}
+
+export const CONTROLES_CONTENTION = [1, 4, 8, 12];
+
+function echeancesParcours(p, g, auj, ajouter) {
+  const parcours = g.parcours || {};
+  const rdv = parcours.rdv || {};
+  const avant = (date) => ajouterJours(date, -3);
+  if (parcours.bilan && !parcours.bilanFacture)
+    ajouter("fact-bilan", "facturation", "Facturer le bilan orthodontique", parcours.bilan);
+  // Message de facturation 3 jours avant la pose, puis avant chaque semestre.
+  if (rdv.pose && !parcours.pose && !g.semestres?.debut && avant(rdv.pose) <= auj)
+    ajouter(
+      `msg-pose-${rdv.pose}`,
+      "message",
+      "Envoyer le message de facturation (pose)",
+      avant(rdv.pose),
+      `Pose le ${formaterIso(rdv.pose)}`,
+    );
+  if (g.semestres?.debut && !["contention", "suspension"].includes(g.phase)) {
+    for (const s of semestres(g)) {
+      if (s.numero === 1 || s.facture || s.aVerifier) continue;
+      const cible =
+        rdv.facturation && rdv.facturation >= ajouterJours(s.debut, -30) && rdv.facturation < s.fin
+          ? rdv.facturation
+          : s.debut;
+      if (avant(cible) <= auj && cible >= ajouterMois(auj, -1))
+        ajouter(
+          `msg-sem-${s.numero}`,
+          "message",
+          `Envoyer le message de facturation (semestre ${s.numero})`,
+          avant(cible),
+          `RDV de facturation le ${formaterIso(cible)}`,
+        );
+    }
+  }
+  if (rdv.depose && !parcours.depose && avant(rdv.depose) <= auj)
+    ajouter(
+      `msg-depose-${rdv.depose}`,
+      "message",
+      "Envoyer le message de dépose",
+      avant(rdv.depose),
+      `Dépose le ${formaterIso(rdv.depose)}`,
+    );
+  if (!g.semestres?.debut) return;
+  const secu = priseEnChargeSecu(p, g);
+  const montant = g.semestres.contention ?? BAREME_PAR_DEFAUT.contention;
+  const finSemestres = ajouterMois(g.semestres.debut, (g.semestres.nombre || 0) * 6);
+  const dateContention = secu ? parcours.depose : parcours.depose || (finSemestres <= auj ? finSemestres : "");
+  if (dateContention && !parcours.contentionFacturee)
+    ajouter(
+      "fact-contention",
+      "facturation",
+      `Encaisser la contention : ${libelleContention(secu, montant)}`,
+      dateContention,
+    );
+  if (!parcours.depose) return;
+  if (secu && !parcours.vitale) {
+    const fin = ajouterMois(parcours.depose, 12);
+    if (ajouterJours(fin, -15) <= auj)
+      ajouter(
+        "fact-vitale",
+        "facturation",
+        "Passer la carte Vitale : télétransmission TO75",
+        fin,
+        "Dernière visite de l'année de contention",
+      );
+  }
+  for (const m of CONTROLES_CONTENTION) {
+    const date = ajouterMois(parcours.depose, m);
+    if (!parcours.controles?.[m] && ajouterJours(date, -7) <= auj)
+      ajouter(
+        `ctrl-${m}`,
+        "contention",
+        `Contrôle de contention (${m} mois)`,
+        date,
+        "Vérifier que le rendez-vous est pris",
+      );
+  }
+}
+
+// DEP pré-remplie depuis le diagnostic du dossier (texte libre « Sens transversal : … »).
+export function depDepuisDiagnostic(texte) {
+  const t = String(texte || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const cases = {};
+  const si = (regex, cle) => regex.test(t) && (cases[cle] = true);
+  si(/endognathie maxillaire|endomaxillie|maxillaire\s*:?\s*endo/, "bm_endo");
+  si(/exognathie maxillaire|exomaxillie/, "bm_exo");
+  si(/prognathie maxillaire|promaxillie|proalveolie maxillaire/, "bm_pro");
+  si(/retrognathie maxillaire|retromaxillie|hypoplasie maxillaire/, "bm_retro");
+  si(/endognathie mandibulaire|endomandibulie/, "bd_endo");
+  si(/exognathie mandibulaire|exomandibulie/, "bd_exo");
+  si(/prognathie mandibulaire|promandibulie|prognathisme/, "bd_pro");
+  si(/retrognathie mandibulaire|retromandibulie|retrognathie\b(?! maxillaire)/, "bd_retro");
+  si(/endoalveolie maxillaire|endoalveolie superieure|endoalveolie\b(?! mandibulaire)/, "am_endo");
+  si(/endoalveolie mandibulaire|endoalveolie inferieure/, "ad_endo");
+  si(
+    /proalveolie (superieure|maxillaire)|vestibuloversion (des )?incisives superieures|proversion (des )?incisives superieures/,
+    "am_pro",
+  );
+  si(/proalveolie (inferieure|mandibulaire)|vestibuloversion (des )?incisives inferieures/, "ad_pro");
+  si(/retroalveolie (superieure|maxillaire)|linguoversion (des )?incisives superieures/, "am_retro");
+  si(/retroalveolie (inferieure|mandibulaire)|linguoversion (des )?incisives inferieures/, "ad_retro");
+  si(/hypodivergen/, "hypo");
+  si(/hyperdivergen/, "hyper");
+  si(/supraclusion|recouvrement augmente/, "supra");
+  si(/infraclusion|beance/, "infra");
+  si(/encombrement|dysharmonie dento-maxillaire|ddm\b/, "ddm");
+  si(/dysharmonie dento-dentaire|bolton/, "ddd");
+  const inverse = /(occlusion|articule)\s+inverse[^\n.;]*/.exec(t)?.[0] || "";
+  if (inverse) {
+    if (/droit|bilateral/.test(inverse)) cases.inv_d = true;
+    if (/gauche|bilateral/.test(inverse)) cases.inv_g = true;
+    if (/anterieur|incisi/.test(inverse)) cases.inv_a = true;
+  }
+  const classe = (motCle) => {
+    const m = new RegExp(
+      `classe\\s+(iii|ii|i|3|2|1)\\b[^\\n]*${motCle}|${motCle}[^\\n]*classe\\s+(iii|ii|i|3|2|1)\\b`,
+    ).exec(t);
+    const v = m?.[1] || m?.[2];
+    return v ? { 1: "I", 2: "II", 3: "III", i: "I", ii: "II", iii: "III" }[v] : "";
+  };
+  // Sans précision « molaire », la classe d'Angle du sens antéro-postérieur est la classe molaire.
+  const angle = /(antero-posterieur|sagittal)[^\n]*classe\s+(iii|ii|i|3|2|1)\b/.exec(t)?.[2];
+  const molaire =
+    classe("molaire") || (angle ? { 1: "I", 2: "II", 3: "III", i: "I", ii: "II", iii: "III" }[angle] : "");
+  const malpositions = /malpositions?\s*:\s*([^\n]+)/i.exec(String(texte || ""))?.[1]?.trim() || "";
+  const incluses = /(?:dents? incluses?|inclusions?)\s*:\s*([^\n]+)/i.exec(String(texte || ""))?.[1]?.trim() || "";
+  return { cases, molaire, canine: classe("canine"), malpositions, incluses };
 }

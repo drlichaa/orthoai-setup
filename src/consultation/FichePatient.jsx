@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Parcours from "./Parcours.jsx";
 import EnvoiMail from "./EnvoiMail.jsx";
 import { modeleCourrier } from "./messagerie.js";
 import FriseTraitement from "./FriseTraitement.jsx";
@@ -428,6 +429,16 @@ export default function FichePatient({
 
   // En-tête des documents : adresse du cabinet où le patient est suivi.
   const cabinetPatient = cabinetPour(cabinet, patient.lieu);
+  // Date de la 1ère consultation : la plus ancienne connue (compte rendu, devis, début, création du dossier).
+  const datePremiere = [
+    ...(dossier?.comptesRendus || []).map((c) => c.patient?.date),
+    ...(patient.gestion?.devis || []).map((d) => d.date),
+    patient.orthofast?.debutTraitement,
+    patient.debut,
+    patient.creeLe?.slice(0, 10),
+  ]
+    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d || ""))
+    .sort()[0];
   const courrierAImprimer = courrierImprime === null ? null : patient.courriers[courrierImprime];
   const scenarios = cabinet?.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT;
   // Images hors séries (anciennes, radios annotées…) et sans les empreintes 3D.
@@ -553,6 +564,15 @@ export default function FichePatient({
                   <FriseTraitement patient={patient} gestion={patient.gestion} />
                 </section>
               )}
+              <Parcours
+                patient={patient}
+                maj={maj}
+                majGestion={majGestion}
+                cabinet={cabinetPatient}
+                datePremiere={datePremiere}
+                onImprimer={imprimerDocument}
+                onOnglet={setOnglet}
+              />
               <section className="cr-carte">
                 <h2>Traitement en cours</h2>
                 <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>
@@ -960,14 +980,7 @@ export default function FichePatient({
             maj={maj}
             majGestion={majGestion}
             cabinet={cabinetPatient}
-            datePremiere={
-              (dossier?.comptesRendus || [])
-                .map((c) => c.patient?.date)
-                .filter(Boolean)
-                .sort()[0] ||
-              patient.debut ||
-              patient.creeLe.slice(0, 10)
-            }
+            datePremiere={datePremiere}
             onImprimer={imprimerDocument}
           />
         )}

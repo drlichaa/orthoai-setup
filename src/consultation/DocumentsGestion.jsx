@@ -1,4 +1,5 @@
 // Documents imprimés de la gestion : devis conventionnel et DEP (Cerfa 10518*01).
+import { etapesGouttiere, texteConsentement } from "./consentements.js";
 import { DEP_CASES, euros, totauxDevis } from "./gestion.js";
 import { formaterDate } from "./format.js";
 
@@ -297,5 +298,150 @@ export function DepDocument({ dep, patient, cabinet }) {
         )}
       </section>
     </div>
+  );
+}
+
+// « **gras** » et « __souligné__ » dans les textes des modèles.
+function Riche({ texte }) {
+  return String(texte)
+    .split(/(\*\*[^*]+\*\*|__[^_]+__)/)
+    .map((morceau, i) => {
+      if (/^\*\*.*\*\*$/.test(morceau)) return <b key={i}>{morceau.slice(2, -2)}</b>;
+      if (/^__.*__$/.test(morceau))
+        return (
+          <u key={i}>
+            <Riche texte={morceau.slice(2, -2)} />
+          </u>
+        );
+      return morceau;
+    });
+}
+
+function EnteteCabinet({ cabinet, titre }) {
+  return (
+    <header className="oa-doc-entete">
+      <div className="oa-doc-praticien">
+        {cabinet.praticien && <div>{cabinet.praticien}</div>}
+        {cabinet.identifiant && <div className="oa-doc-rpps">N° RPPS {cabinet.identifiant}</div>}
+        {cabinet.coordonnees && <div className="oa-doc-adresse">{cabinet.coordonnees}</div>}
+        {cabinet.telephone && <div>Tél : {cabinet.telephone}</div>}
+        {cabinet.email && <div>Mail : {cabinet.email}</div>}
+      </div>
+      {cabinet.logo && <img className="oa-doc-logo" src={cabinet.logo} alt="" />}
+      <h1 className="oa-doc-titre">{titre}</h1>
+    </header>
+  );
+}
+
+export function ConsentementDocument({ patient, cabinet, enfant }) {
+  return (
+    <article className="cr-imprime-seul oa-doc oa-consentement">
+      <EnteteCabinet cabinet={cabinet} titre="Consentement éclairé" />
+      <p className="oa-doc-patient">
+        Patient : <b>{[patient.prenom, patient.nom?.toUpperCase()].filter(Boolean).join(" ")}</b>
+        {patient.naissance && <> · né(e) le {formaterDate(patient.naissance)}</>}
+      </p>
+      {texteConsentement(enfant).map((bloc, i) => {
+        if (bloc.titre) return <h2 key={i}>{bloc.titre}</h2>;
+        if (bloc.section)
+          return (
+            <h3 key={i}>
+              {bloc.numero}. <u>{bloc.section}</u>
+            </h3>
+          );
+        if (bloc.sousTitre)
+          return (
+            <h4 key={i}>
+              <u>{bloc.sousTitre}</u>
+            </h4>
+          );
+        if (bloc.centre)
+          return (
+            <p key={i} className="oa-doc-centre">
+              <Riche texte={bloc.centre} />
+            </p>
+          );
+        if (bloc.liste)
+          return (
+            <ul key={i}>
+              {bloc.liste.map((l) => (
+                <li key={l}>
+                  <Riche texte={l} />
+                </li>
+              ))}
+            </ul>
+          );
+        return (
+          <p key={i}>
+            <Riche texte={bloc.texte} />
+          </p>
+        );
+      })}
+      <div className="oa-doc-signatures">
+        <div>
+          <b>Signature du praticien</b>
+          {cabinet.signature && <img src={cabinet.signature} alt="" />}
+        </div>
+        <div>
+          et{" "}
+          {enfant ? (
+            <>
+              de ses <b>parents</b> (si le patient est mineur)
+            </>
+          ) : (
+            <>
+              du <b>patient</b>
+            </>
+          )}
+          <br />
+          Date :
+        </div>
+      </div>
+      <footer className="oa-doc-pied">Consentement éclairé {cabinet.praticien}</footer>
+    </article>
+  );
+}
+
+export function FicheGouttiereDocument({ patient, cabinet, depose }) {
+  const etapes = etapesGouttiere(depose);
+  return (
+    <article className="cr-imprime-seul oa-doc oa-gouttiere">
+      <EnteteCabinet cabinet={cabinet} titre="Port de la gouttière de contention" />
+      <p className="oa-doc-patient">
+        Patient : <b>{[patient.prenom, patient.nom?.toUpperCase()].filter(Boolean).join(" ")}</b>
+        {depose && <> · appareil déposé le {formaterDate(depose)}</>}
+      </p>
+      <table className="oa-doc-tableau">
+        <tbody>
+          {etapes.map((e) => (
+            <tr key={e.consigne}>
+              <th>
+                {e.mois ? (
+                  depose ? (
+                    <>
+                      Du {formaterDate(e.debut)}
+                      <br />
+                      au {formaterDate(e.fin)}
+                    </>
+                  ) : (
+                    `${e.mois} mois`
+                  )
+                ) : depose ? (
+                  `À partir du ${formaterDate(e.debut)}`
+                ) : (
+                  "Ensuite"
+                )}
+              </th>
+              <td>{e.consigne}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p>
+        Rendez-vous de contrôle : <b>1 mois</b> après la dépose, puis <b>tous les 4 mois</b> pendant la première année.
+      </p>
+      <p>Apportez votre gouttière à chaque rendez-vous de contrôle.</p>
+      <footer className="oa-doc-pied">{cabinet.praticien}</footer>
+    </article>
   );
 }

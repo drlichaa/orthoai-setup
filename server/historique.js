@@ -868,7 +868,7 @@ export function creerHistorique(fichier) {
     // Réglages de messagerie : vérifiés auprès de Gmail avant d'être enregistrés.
     async enregistrerMessagerie(brut) {
       exiger();
-      const suivante = nettoyerMessagerie(brut, messagerie);
+      const suivante = nettoyerMessagerie(brut, messagerie, { enregistrement: true });
       const identifiantsChanges =
         suivante.adresse !== messagerie.adresse || suivante.motDePasse !== messagerie.motDePasse;
       if (identifiantsChanges && suivante.adresse && suivante.motDePasse) {

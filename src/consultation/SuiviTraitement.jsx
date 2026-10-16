@@ -2,7 +2,15 @@
 // rappels, incidents et chronologie du patient.
 import { useState } from "react";
 import { formaterDate } from "./format.js";
-import { ajouterJours, ajouterMois, aujourdhui, identifiantUnique, isoDepuisFr, moisEntre } from "./gestion.js";
+import {
+  ajouterJours,
+  ajouterMois,
+  aujourdhui,
+  identifiantUnique,
+  isoDepuisFr,
+  moisEntre,
+  nonRevuSemaines,
+} from "./gestion.js";
 
 const TYPES_INCIDENTS = ["Bague décollée", "Fil qui gêne", "Appareil cassé", "Rendez-vous manqué", "Autre"];
 
@@ -62,20 +70,20 @@ function Rappels({ g, majGestion }) {
       <label className="cr-case">
         <input
           type="checkbox"
-          checked={Number(g.nonRevuMois) > 0}
-          onChange={(e) => majGestion({ nonRevuMois: e.target.checked ? 3 : 0 })}
+          checked={nonRevuSemaines(g) > 0}
+          onChange={(e) => majGestion({ nonRevuSemaines: e.target.checked ? 12 : 0 })}
         />{" "}
-        Alerter si le patient n'est pas revu depuis{" "}
+        Tâche « Rappeler le patient » s'il n'est pas revu depuis{" "}
         <input
           className="oa-court"
           type="number"
           min="1"
-          max="36"
-          disabled={!(Number(g.nonRevuMois) > 0)}
-          value={g.nonRevuMois || 3}
-          onChange={(e) => majGestion({ nonRevuMois: Math.max(1, Number(e.target.value) || 1) }, false)}
+          max="104"
+          disabled={!(nonRevuSemaines(g) > 0)}
+          value={nonRevuSemaines(g) || 12}
+          onChange={(e) => majGestion({ nonRevuSemaines: Math.max(1, Number(e.target.value) || 1) }, false)}
         />{" "}
-        mois
+        semaines
       </label>
     </section>
   );

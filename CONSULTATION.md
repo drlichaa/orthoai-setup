@@ -249,3 +249,17 @@ Page **Relances** (menu) : trois listes, filtrées par cabinet.
 **Envoyer un compte rendu ou un courrier** : bouton « E-mail » à côté de « Imprimer / PDF » (compte rendu de consultation), et sur chaque courrier ou ordonnance (consultation et dossier patient). Le document est joint en PDF, avec ses images. Destinataire : l'« E-mail du destinataire » saisi sur le courrier (confrère, modèle « Courrier pour un confrère »), sinon l'adresse du patient (modèle « Courrier remis au patient »). La consultation est enregistrée avant l'envoi pour que l'envoi soit noté dans le dossier.
 
 Le PDF est créé par l'application du cabinet (Electron) ; les tests automatiques utilisent un faux serveur de messagerie local (`ORTHOAI_SMTP_TEST`), jamais Gmail.
+
+## Parcours de traitement (fiche clinique)
+
+Bloc « Parcours de traitement » sous la frise, étapes cochables et datées :
+
+1. **Consultation** : date de la 1ère consultation, radios (panoramique, téléradio de profil), devis remis.
+2. **Bilan** : date du bilan, 12 photos, empreinte 3Shape, DEP « Début de traitement » (cochée dès qu'elle est imprimée), devis signé (bouton « Devis signé »), consentement éclairé signé (enfant si moins de 16 ans à la 1ère consultation, adulte sinon ; imprimable ou envoyé par e-mail), bilan facturé (TO5 + TO15 : 200 €, 350 € pour les gouttières).
+3. **Pose** : RDV de pose, message de facturation (copier ou e-mail). « Pose effectuée » démarre le 1er semestre ce jour-là (frise). **Bloquée** tant que DEP (si prise en charge), devis signé et consentement ne sont pas faits ; « Passer outre » exige un motif, enregistré dans le dossier.
+4. **Suivi** : prochain RDV de facturation et message de facturation.
+5. **Fin de traitement** : RDV de dépose, message de dépose, « Dépose effectuée » (statut En contention, année de contention C1). Puis : contention 750 € (« TO75 » si prise en charge, « HN (TO75) » pour un adulte, facturé à la fin du dernier semestre), fils collés haut et bas, empreinte de la gouttière de nuit et fiche « Port de la gouttière » (imprimable), contrôles à 1, 4, 8 et 12 mois, carte Vitale (TO75) à la dernière visite de l'année de contention.
+
+Alertes : patient qui approche de 16 ans sans pose (prise en charge), DEP de plus de 5 mois sans pose. Hors prise en charge, la DEP n'est pas exigée. Patients déjà en traitement (import OrthoFast, semestres existants) : pose considérée comme faite, aucun blocage rétroactif.
+
+Tâches automatiques : facturer le bilan ; message de facturation 3 jours avant la pose et avant chaque semestre (ou le prochain RDV de facturation) ; message de dépose 3 jours avant ; encaisser la contention ; carte Vitale ; contrôles de contention ; « Rappeler le patient » après 12 semaines sans séance (réglable dans Suivi du traitement). Messages types « Facturation » et « Dépose » dans Paramètres → Messagerie.

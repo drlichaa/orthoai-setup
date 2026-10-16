@@ -63,6 +63,19 @@ async function terminerEcheance(e, donnees, setDonnees) {
   const [, cle] = e.cle.split(":");
   const n = Number(cle.split("-").at(-1));
   const auj = aujourdhui();
+  // Parcours : bilan, contention, carte Vitale, contrôles de contention.
+  const parcours = g.parcours || {};
+  const champsParcours = {
+    "fact-bilan": "bilanFacture",
+    "fact-contention": "contentionFacturee",
+    "fact-vitale": "vitale",
+  };
+  if (champsParcours[cle])
+    return majGestionPatient(e.patient, { parcours: { ...parcours, [champsParcours[cle]]: auj } });
+  if (e.type === "contention")
+    return majGestionPatient(e.patient, {
+      parcours: { ...parcours, controles: { ...(parcours.controles || {}), [n]: auj } },
+    });
   if (e.type === "facturation")
     return majGestionPatient(e.patient, {
       semestres: { ...g.semestres, factures: { ...(g.semestres?.factures || {}), [n]: auj } },
@@ -93,6 +106,8 @@ const LIBELLE_FAIT = {
   dep: "DEP faite",
   depEnvoi: "Envoyée",
   rappel: "Contacté",
+  message: "Envoyé",
+  contention: "Fait",
   labo: "Reçu",
   nonRevu: "Écarter",
   depRenouvellement: "Fait",
@@ -595,7 +610,7 @@ export function Relances({ cabinet, lieuActif = "", onOuvrirPatient, onCabinetCh
           <h2>{TYPES_RELANCES[vue].titre}</h2>
           {vue === "devis" && delai("devisMois", "Relancer après", "mois sans validation")}
           {vue === "attente" && delai("attenteMois", "Revoir après", "mois d'attente")}
-          {vue === "suivi" && delai("suiviMois", "Alerter après", "mois sans séance")}
+          {vue === "suivi" && delai("suiviSemaines", "Alerter après", "semaines sans séance")}
         </div>
         {liste.length === 0 ? (
           <p className="cr-aide">Aucune relance à faire.</p>
@@ -668,7 +683,7 @@ export function Relances({ cabinet, lieuActif = "", onOuvrirPatient, onCabinetCh
         <p className="cr-aide">
           Après « Relancé », le patient revient dans la liste{" "}
           {vue === "suivi"
-            ? `si aucune séance n'est saisie dans les ${delais.suiviMois} mois`
+            ? `si aucune séance n'est saisie dans les ${delais.suiviSemaines} semaines`
             : `au bout de ${delais[TYPES_RELANCES[vue].delai]} mois s'il n'a pas donné suite`}
           {vue === "devis" && " (devis non validé ou statut « Devis envoyé »)"}.
         </p>

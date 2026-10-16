@@ -13,7 +13,8 @@ const PRIX_SEMESTRE = [
 ];
 
 const ACTES_SECU = [
-  ["diagnostic", "Diagnostic"],
+  ["to5", "Bilan (TO5)"],
+  ["to15", "Bilan (TO15)"],
   ["semestre", "Semestre ODF"],
   ["contention", "Contention (année)"],
   ["surveillance", "Surveillance"],
@@ -55,10 +56,19 @@ export default function ReglagesGestion({ cabinet, onCabinetChange }) {
             Année de contention (€)
             {nombre(b.contention, (v) => majBareme({ contention: v }))}
           </label>
-          <label>
-            Diagnostic (€)
-            {nombre(b.diagnostic, (v) => majBareme({ diagnostic: v }))}
-          </label>
+          {[
+            ["standard", "Bilan interception / bagues"],
+            ["aligneurs", "Bilan gouttières"],
+          ].map(([cle, libelle]) =>
+            ["to5", "to15"].map((acte) => (
+              <label key={cle + acte}>
+                {libelle} — {acte.toUpperCase()} (€)
+                {nombre(b.bilan[cle][acte], (v) =>
+                  majBareme({ bilan: { ...b.bilan, [cle]: { ...b.bilan[cle], [acte]: v } } }),
+                )}
+              </label>
+            )),
+          )}
           <label>
             Surveillance (€)
             {nombre(b.surveillance, (v) => majBareme({ surveillance: v }))}
@@ -171,7 +181,7 @@ export function ReglagesLieux({ cabinet, onCabinetChange }) {
   );
 }
 
-const CATEGORIES = ["Devis", "Compte rendu", "Rendez-vous", "Courrier", "Autre"];
+const CATEGORIES = ["Devis", "Compte rendu", "Facturation", "Rendez-vous", "Courrier", "Autre"];
 
 // Paramètres → Messagerie : compte Gmail du cabinet (réglages rangés dans le coffre chiffré),
 // signature, liens de prise de RDV et modèles d'objet / de message.

@@ -13,6 +13,8 @@ import {
   anneeContention,
   aujourdhui,
   bareme,
+  depDepuisDiagnostic,
+  isoDepuisFr,
   euros,
   identifiantUnique,
   libelleDep,
@@ -123,7 +125,7 @@ function NouveauDevis({ patient, cabinet, datePremiere, onCree, onAnnuler }) {
       </p>
       <div className="cr-filtres">
         {[
-          ["diagnostic", "Ajouter le diagnostic"],
+          ["diagnostic", "Ajouter le bilan (TO5 + TO15)"],
           ["contention", "Ajouter la contention"],
           ["surveillance", "Ajouter une surveillance"],
         ].map(([cle, libelle]) => (
@@ -219,33 +221,13 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
   const [envoi, setEnvoi] = useState(null);
   const liste = g.devis || [];
 
+  // Devis signé : noté pour le bilan ; les semestres démarrent à la pose (Fiche clinique → Parcours).
   function valider(devis) {
-    const debut = window.prompt("Date de début du 1er semestre (JJ/MM/AAAA) :", new Date().toLocaleDateString("fr-FR"));
-    if (debut === null) return;
-    const m = debut.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (!m) return window.alert("Date invalide : utilisez JJ/MM/AAAA.");
-    const iso = `${m[3]}-${m[2]}-${m[1]}`;
-    const montants = devis.lignes.filter((l) => /semestre/i.test(l.libelle)).map((l) => Number(l.honoraires) || 0);
-    maj(
-      {
-        statut: "En traitement",
-        debut: iso,
-        gestion: {
-          ...g,
-          devis: liste.map((d) => ({ ...d, valide: d.id === devis.id ? aujourdhui() : "" })),
-          semestres: {
-            debut: iso,
-            nombre: montants.length || devis.semestres,
-            montants,
-            contention: devis.lignes.find((l) => /contention/i.test(l.libelle))?.honoraires ?? null,
-            devisId: devis.id,
-            factures: {},
-          },
-          phase: "actif",
-        },
-      },
-      { immediat: true },
-    );
+    const reponse = window.prompt("Date de signature du devis (JJ/MM/AAAA) :", new Date().toLocaleDateString("fr-FR"));
+    if (reponse === null) return;
+    const iso = isoDepuisFr(reponse.trim());
+    if (!iso) return window.alert("Date invalide : utilisez JJ/MM/AAAA.");
+    majGestion({ devis: liste.map((d) => ({ ...d, valide: d.id === devis.id ? iso : "" })) });
   }
 
   const MODELE_PAR_TRAITEMENT = { metal: "devis-metal", ceramique: "devis-ceramique", aligneurs: "devis-gouttieres" };
@@ -307,7 +289,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
                   </button>
                   {!d.valide && (
                     <button type="button" className="principal" onClick={() => valider(d)}>
-                      Signé : démarrer
+                      Devis signé
                     </button>
                   )}
                   <button
@@ -369,7 +351,10 @@ function Semestres({ patient, g, majGestion }) {
         </label>
       </div>
       {!g.semestres?.debut ? (
-        <p className="cr-aide">Les semestres se créent quand un devis est validé (« Signé : démarrer »).</p>
+        <p className="cr-aide">
+          Les semestres démarrent le jour de la pose de l'appareil : Fiche clinique → Parcours de traitement → « Pose
+          effectuée ».
+        </p>
       ) : (
         <>
           <FriseTraitement patient={patient} gestion={g} />
@@ -449,11 +434,15 @@ function brouillonDep(patient, g) {
   const contention = !prochain && liste.length > 0 ? anneeContention(g) : null;
   const numero = prochain ? premierDuGroupe(prochain.numero) : 1;
   const debutGroupe = liste.find((s) => s.numero === numero)?.debut;
+  // Première DEP : pré-remplie depuis le diagnostic du dossier ; ensuite, reprise de la précédente.
+  const lu = depDepuisDiagnostic([patient.diagnostic, patient.plan].filter(Boolean).join("\n"));
+  const parcours = g.parcours || {};
   return {
-    date: aujourdhui(),
+    // Date de la proposition : jour du bilan s'il est noté.
+    date: (!liste.length && parcours.bilan) || aujourdhui(),
     nature: contention ? "contention" : numero > 1 ? "suite" : "debut",
     numero: String(numero),
-    debut: contention?.debut || debutGroupe || patient.debut || aujourdhui(),
+    debut: contention?.debut || debutGroupe || parcours.rdv?.pose || "",
     cotation: contention ? "TO75" : "TO90",
     devisRemis: true,
     secu: g.numeroSecu || "",
@@ -462,14 +451,14 @@ function brouillonDep(patient, g) {
     adresse: g.adresse || "",
     profession: g.profession || "",
     agenesies: patient.agenesies || "",
-    incluses: "",
-    malpositions: "",
+    incluses: lu.incluses,
+    malpositions: lu.malpositions,
     facteurs: "",
     plan: patient.plan || "",
     commentaires: "",
-    cases: g.depDernier?.cases || {},
-    molaire: g.depDernier?.molaire || "",
-    canine: g.depDernier?.canine || "",
+    cases: g.depDernier?.cases || lu.cases,
+    molaire: g.depDernier?.molaire || lu.molaire,
+    canine: g.depDernier?.canine || lu.canine,
   };
 }
 

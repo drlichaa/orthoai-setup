@@ -5,7 +5,7 @@ import nodemailer from "nodemailer";
 
 const texte = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
 
-export const CATEGORIES_MODELES = ["Devis", "Compte rendu", "Rendez-vous", "Courrier", "Autre"];
+export const CATEGORIES_MODELES = ["Devis", "Compte rendu", "Facturation", "Rendez-vous", "Courrier", "Autre"];
 
 // Modèles proposés au départ (repris des messages types d'OrthoFast), modifiables.
 const devis = (id, traitement) => ({
@@ -79,6 +79,39 @@ export const MODELES_PAR_DEFAUT = [
     corps: "Bonjour,\n\nVeuillez trouver ci-joint votre ordonnance.\n\nBien cordialement,",
   },
   {
+    id: "facturation-semestre",
+    categorie: "Facturation",
+    nom: "Facturation d'un semestre (avant la pose et chaque semestre)",
+    objet: "Votre prochain rendez-vous d'orthodontie",
+    corps: `Bonjour,
+
+Lors de votre prochain rendez-vous d'orthodontie, une facturation correspondant à un semestre de traitement sera effectuée.
+Merci de vous munir de votre carte Vitale et d'un moyen de règlement.
+
+Bien cordialement,
+L'équipe du cabinet d'orthodontie`,
+  },
+  {
+    id: "depose",
+    categorie: "Facturation",
+    nom: "Dépose de l'appareil et contention",
+    objet: "Fin de votre traitement orthodontique",
+    corps: `Bonjour,
+
+Votre prochain rendez-vous marquera la fin de votre traitement orthodontique, avec la dépose de l'appareil et la mise en place des contentions.
+
+Le règlement de 750 € (CB, chèque ou espèces) correspondant à cette étape vous sera demandé en début de séance.
+
+Ce montant comprend également :
+- un rendez-vous de contrôle à 1 mois,
+- puis des visites de suivi tous les 4 mois pendant la première année.
+
+NB : Conformément aux modalités de la Sécurité sociale, une télétransmission (TO75) sera effectuée lors des séances de suivi de la contention.
+
+Bien cordialement,
+L'équipe du cabinet d'orthodontie`,
+  },
+  {
     id: "rdv-refixer",
     categorie: "Rendez-vous",
     nom: "Refixer un rendez-vous",
@@ -95,9 +128,13 @@ export const MESSAGERIE_PAR_DEFAUT = {
   signature: "",
   liensRdv: {},
   modeles: MODELES_PAR_DEFAUT,
+  // Modèles fournis par défaut que le cabinet a supprimés (ne pas les rajouter).
+  modelesRetires: [],
 };
 
-export function nettoyerMessagerie(brut, precedent = MESSAGERIE_PAR_DEFAUT) {
+const IDS_PAR_DEFAUT = MODELES_PAR_DEFAUT.map((m) => m.id);
+
+export function nettoyerMessagerie(brut, precedent = MESSAGERIE_PAR_DEFAUT, { enregistrement = false } = {}) {
   const adresse = texte(brut?.adresse, 200).trim().toLowerCase();
   const motDePasse = texte(brut?.motDePasse, 100).replace(/\s+/g, "");
   const liensRdv = {};
@@ -112,6 +149,22 @@ export function nettoyerMessagerie(brut, precedent = MESSAGERIE_PAR_DEFAUT) {
         corps: texte(m?.corps, 20000),
       }))
     : precedent.modeles;
+  // Modèles par défaut supprimés à cet enregistrement : retenus pour ne pas revenir.
+  const supprimes =
+    enregistrement && Array.isArray(brut?.modeles)
+      ? (precedent.modeles || []).map((m) => m.id).filter((id) => !modeles.some((m) => m.id === id))
+      : [];
+  const retires = [
+    ...new Set([
+      ...(Array.isArray(brut?.modelesRetires) ? brut.modelesRetires : precedent.modelesRetires || []),
+      ...supprimes,
+    ]),
+  ].filter((id) => IDS_PAR_DEFAUT.includes(id));
+  // Nouveaux modèles par défaut (ajoutés à une mise à jour) : proposés au cabinet.
+  const complets = [
+    ...modeles,
+    ...MODELES_PAR_DEFAUT.filter((m) => !retires.includes(m.id) && !modeles.some((x) => x.id === m.id)),
+  ];
   return {
     adresse: adresse || precedent.adresse,
     nom: texte(brut?.nom, 200),
@@ -119,7 +172,8 @@ export function nettoyerMessagerie(brut, precedent = MESSAGERIE_PAR_DEFAUT) {
     motDePasse: motDePasse || precedent.motDePasse,
     signature: texte(brut?.signature, 5000),
     liensRdv,
-    modeles,
+    modeles: complets,
+    modelesRetires: retires,
   };
 }
 
