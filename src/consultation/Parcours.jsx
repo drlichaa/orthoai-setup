@@ -85,13 +85,9 @@ function noterSeance(seances, iso, ligne) {
   return apres === -1 ? [...liste, seance] : [...liste.slice(0, apres), seance, ...liste.slice(apres)];
 }
 
-const demanderDate = (question, defaut) => {
-  const reponse = window.prompt(question, (defaut || aujourdhui()).split("-").reverse().join("/"));
-  if (reponse === null) return null;
-  const iso = isoDepuisFr(reponse.trim());
-  if (!iso) window.alert("Date invalide : utilisez JJ/MM/AAAA.");
-  return iso || null;
-};
+// Date d'un acte effectué : le RDV prévu s'il est passé (ou aujourd'hui), sinon aujourd'hui.
+// (Pas de fenêtre window.prompt : elle ne s'affiche pas dans l'application de bureau.)
+const dateEffectuee = (rdv) => (rdv && rdv <= aujourdhui() ? rdv : aujourdhui());
 
 export default function Parcours({
   patient,
@@ -178,14 +174,12 @@ export default function Parcours({
     setRecommandations(true);
   }
   function demanderPose() {
-    const date = demanderDate("Date de la pose de l'appareil (JJ/MM/AAAA) :", e.rdv.pose);
-    if (!date) return;
+    const date = dateEffectuee(e.rdv.pose);
     if (e.manquants.length) setBlocage({ date });
     else poser(date);
   }
   function deposer() {
-    const date = demanderDate("Date de la dépose de l'appareil (JJ/MM/AAAA) :", e.rdv.depose);
-    if (!date) return;
+    const date = dateEffectuee(e.rdv.depose);
     maj(
       {
         statut: "En contention",
@@ -342,6 +336,10 @@ export default function Parcours({
                 Pose effectuée : démarrer le 1er semestre
               </button>
             </div>
+            <p className="cr-aide">
+              Date de pose retenue : {formaterDate(dateEffectuee(e.rdv.pose))} (date du RDV de pose s'il est passé,
+              sinon aujourd'hui).
+            </p>
             {blocage && (
               <div className="oa-parcours-derogation">
                 <p>
@@ -417,6 +415,7 @@ export default function Parcours({
                   Dépose effectuée : passer en contention
                 </button>
               </div>
+              <p className="cr-aide">Date de dépose retenue : {formaterDate(dateEffectuee(e.rdv.depose))}.</p>
             </>
           ) : (
             <p className="cr-aide">En fin de traitement.</p>

@@ -680,3 +680,9 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-fiche-imprimee { page: fiche; display: block; width: 100%; height: auto; max-height: 196mm; object-fit: contain; break-after: page; }
 .oa-fiche-illustree { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0; }
 .oa-fiche-illustree img { height: 70px; border: 1px solid var(--cr-bord); border-radius: 6px; }
+.oa-demander { border: none; border-radius: 12px; padding: 20px; width: min(440px, 92vw); box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25); font: inherit; }
+.oa-demander::backdrop { background: rgba(15, 23, 42, 0.35); }
+.oa-demander label { display: flex; flex-direction: column; gap: 10px; white-space: pre-line; font-weight: 600; margin-bottom: 16px; }
+.oa-demander input { font: inherit; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
+.oa-demander .cr-actions { justify-content: flex-end; }
+.cr-ajout-acte { margin-top: 4px; width: 100%; font-size: 0.85rem; }

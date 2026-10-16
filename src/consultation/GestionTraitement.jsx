@@ -14,7 +14,8 @@ import {
   aujourdhui,
   bareme,
   depDepuisDiagnostic,
-  isoDepuisFr,
+  facteursFonctionnels,
+  planPourDep,
   euros,
   identifiantUnique,
   libelleDep,
@@ -24,6 +25,7 @@ import {
   semestres,
   totauxDevis,
 } from "./gestion.js";
+import { demander } from "./demander.js";
 
 const PHASES = [
   ["actif", "Traitement actif"],
@@ -222,11 +224,9 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
   const liste = g.devis || [];
 
   // Devis signé : noté pour le bilan ; les semestres démarrent à la pose (Fiche clinique → Parcours).
-  function valider(devis) {
-    const reponse = window.prompt("Date de signature du devis (JJ/MM/AAAA) :", new Date().toLocaleDateString("fr-FR"));
-    if (reponse === null) return;
-    const iso = isoDepuisFr(reponse.trim());
-    if (!iso) return window.alert("Date invalide : utilisez JJ/MM/AAAA.");
+  async function valider(devis) {
+    const iso = await demander("Date de signature du devis :", { type: "date", defaut: aujourdhui() });
+    if (!iso) return;
     majGestion({ devis: liste.map((d) => ({ ...d, valide: d.id === devis.id ? iso : "" })) });
   }
 
@@ -412,8 +412,11 @@ function Semestres({ patient, g, majGestion }) {
             <button
               type="button"
               className="cr-lien"
-              onClick={() => {
-                const n = window.prompt("Nombre de semestres prévus :", g.semestres.nombre);
+              onClick={async () => {
+                const n = await demander("Nombre de semestres prévus :", {
+                  type: "number",
+                  defaut: g.semestres.nombre,
+                });
                 if (n && Number(n) > 0)
                   majGestion({ semestres: { ...g.semestres, nombre: Math.min(20, Math.round(Number(n))) } });
               }}
@@ -453,8 +456,8 @@ function brouillonDep(patient, g) {
     agenesies: patient.agenesies || "",
     incluses: lu.incluses,
     malpositions: lu.malpositions,
-    facteurs: "",
-    plan: patient.plan || "",
+    facteurs: facteursFonctionnels(patient),
+    plan: planPourDep(patient.plan),
     commentaires: "",
     cases: g.depDernier?.cases || lu.cases,
     molaire: g.depDernier?.molaire || lu.molaire,
