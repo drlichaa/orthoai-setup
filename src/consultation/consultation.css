@@ -660,3 +660,7 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 @media (max-width: 900px) { .oa-q-grille { grid-template-columns: 1fr; } .oa-q-pdf, .oa-q-champs { max-height: none; position: static; } }
 .oa-q-refus { color: var(--cr-danger, #b42318); font-weight: 700; }
 .oa-refus-micro { margin: 0 0 0 8px; padding: 4px 10px; font-weight: 600; }
+.oa-visionneuse { width: min(960px, 100%); }
+.oa-visionneuse-pages { display: flex; flex-direction: column; gap: 10px; background: #f1f5f9; padding: 10px; border-radius: 10px; }
+.oa-visionneuse-pages img { width: 100%; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+.oa-bouton-lien { display: inline-flex; align-items: center; padding: 8px 14px; border: 1px solid var(--cr-bord); border-radius: 8px; text-decoration: none; color: var(--cr-texte); font-weight: 600; background: #fff; }

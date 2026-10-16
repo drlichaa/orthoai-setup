@@ -88,8 +88,9 @@ export default function ImportQuestionnaire({ cabinet, lieuActif = "", patientId
   const completer = mode === "completer" && cible;
 
   // Valeur finale d'un champ : remplie si vide, remplacée seulement si demandé.
+  const abimee = (v) => /^\s*\*/.test(String(v || ""));
   const valeurFinale = (cle, nouvelle, actuelle) =>
-    !nouvelle ? actuelle : !actuelle || remplacer[cle] ? nouvelle : actuelle;
+    !nouvelle ? actuelle : !actuelle || abimee(actuelle) || remplacer[cle] ? nouvelle : actuelle;
 
   async function valider() {
     setEtape({ enCours: true, erreur: "" });
@@ -158,7 +159,10 @@ export default function ImportQuestionnaire({ cabinet, lieuActif = "", patientId
               onChange={(e) => majProp(partie, { [cle]: e.target.value })}
             />
           )}
-          {completer && different && (
+          {completer && different && abimee(actuelle) && (
+            <small className="oa-q-remplacer">Remplace « {String(actuelle)} » (valeur d'un import précédent)</small>
+          )}
+          {completer && different && !abimee(actuelle) && (
             <label className="cr-case oa-q-remplacer">
               <input
                 type="checkbox"

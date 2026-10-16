@@ -1,9 +1,12 @@
 // Onglet Patient : questionnaire médical importé de WeClever (réponses validées, PDF chiffré).
+import { useState } from "react";
 import { formaterDate } from "./format.js";
+import VisionneusePdf from "./VisionneusePdf.jsx";
 
 const ACCORD = { accepte: "Accepte", refuse: "Refuse" };
 
 export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
+  const [apercu, setApercu] = useState(false);
   const ligne = (libelle, valeur, alerte = false) =>
     valeur ? (
       <tr>
@@ -20,7 +23,7 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
             <button
               type="button"
               className="secondaire"
-              onClick={() => window.open(`/api/patients/media/${q.pdf}`, "_blank")}
+              onClick={() => setApercu(true)}
             >
               Ouvrir le PDF
             </button>
@@ -30,6 +33,13 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
           </button>
         </div>
       </div>
+      {apercu && (
+        <VisionneusePdf
+          mediaId={q.pdf}
+          nom={`questionnaire-medical-${(q.importeLe || "").slice(0, 10)}.pdf`}
+          onFermer={() => setApercu(false)}
+        />
+      )}
       {!q?.importeLe ? (
         <p className="cr-aide">Aucun questionnaire importé.</p>
       ) : (
@@ -53,7 +63,7 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
             {ligne("Élocution / dyslexie", q.elocution)}
             {ligne("Succion", q.succion)}
             {ligne("ORL", q.orl)}
-            {(q.autres || []).map((a) => ligne(a.question, a.reponse))}
+            {(q.autres || []).filter((a) => a.question?.trim()).map((a) => ligne(a.question, a.reponse))}
             {ligne(
               "Radiographies",
               q.accords?.radiographies &&
@@ -66,15 +76,6 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
               q.accords?.enregistrement === "refuse",
             )}
             {ligne("Départ seul après les soins", ACCORD[q.accords?.departSeul])}
-            {ligne(
-              "Engagements",
-              [
-                q.engagements?.certifie && "informations certifiées",
-                q.engagements?.donnees && "utilisation des données acceptée",
-                q.engagements?.informe && "informé(e) des modifications à signaler",
-                q.engagements?.representant && "rempli par un représentant",
-              ].filter(Boolean),
-            )}
           </tbody>
         </table>
       )}

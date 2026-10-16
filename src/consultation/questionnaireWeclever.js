@@ -13,8 +13,17 @@ const SEUIL_DOUTE = 0.22;
 const ECART_UNIQUE = 0.08;
 const SEUIL_MARQUE = 0.06;
 
-export function normaliser(t) {
+// Ligatures « fi », « fl »… parfois extraites en morceaux séparés (« certi fi e ») : recollées.
+export function reparer(t) {
   return String(t || "")
+    .replace(/\uFB01/g, "fi")
+    .replace(/\uFB02/g, "fl")
+    .replace(/\uFB00/g, "ff")
+    .replace(/(\p{L}|^|\s) ?(ffi|ffl|fi|fl|ff) (?=\p{L})/gu, (_, avant, lig) => avant + lig);
+}
+
+export function normaliser(t) {
+  return reparer(t)
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[’`´]/g, "'")
@@ -25,8 +34,9 @@ export function normaliser(t) {
 
 const vide = (t) => !t || /^[.…_\s-]*$/.test(t);
 const nettoyer = (t) => {
-  const v = String(t || "")
-    .replace(/^[\s:]+/, "")
+  const v = reparer(t)
+    // Astérisque des champs obligatoires (morceau de texte à part dans l'export) et « : ».
+    .replace(/^[\s:*]+/, "")
     .replace(/[.…]{3,}/g, "")
     .trim();
   return vide(v) ? "" : v;
@@ -89,7 +99,7 @@ async function lirePage(page) {
   const img = ctx.getImageData(0, 0, toile.width, toile.height);
   const contenu = await page.getTextContent();
   const morceaux = contenu.items
-    .filter((it) => it.str && it.str.trim())
+    .filter((it) => it.str && it.str.trim() && it.str.trim() !== "*")
     .map((it) => {
       const [, , c, d, e, f] = it.transform;
       const [x, yb] = vue.convertToViewportPoint(e, f);
@@ -119,7 +129,7 @@ async function lirePage(page) {
   }
   const versLigne = (ms, i) => ({
     morceaux: ms,
-    texte: ms.map((m) => m.s).join(" "),
+    texte: reparer(ms.map((m) => m.s).join(" ")),
     x: ms[0].x,
     yb: ms[0].yb,
     h: ms[0].h,
@@ -196,7 +206,7 @@ export async function lireQuestionnaire(octets) {
       }
       // Sexe : choix sur la même ligne que le libellé.
       if (/^sexe\b/.test(n)) {
-        const options = l.morceaux.slice(1).map((m) => ({ texte: m.s, score: page.mesurer(m) }));
+        const options = l.morceaux.slice(1).map((m) => ({ texte: reparer(m.s), score: page.mesurer(m) }));
         const q = { question: "Sexe", options, multiple: false };
         decider(q);
         questions.push(q);
@@ -274,8 +284,9 @@ const ouiNon = (q) => {
 };
 
 function dateIso(v) {
-  if (/^\d{4}-\d{2}-\d{2}/.test(v || "")) return v.slice(0, 10);
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || "");
+  const iso = /(\d{4})-(\d{2})-(\d{2})/.exec(v || "");
+  if (iso) return iso[0];
+  const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v || "");
   return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
 }
 
@@ -295,7 +306,8 @@ export function propositions(lu) {
   const qRadios = chercher(questions, /radiographies/);
   const qEnregistrement = chercher(questions, /enregistrer la consultation/);
   const qDepart = chercher(questions, /partir seul/);
-  const qEngagements = questions.find((q) => q.options.some((o) => /^je certifie/i.test(normaliser(o.texte))));
+  const compact = (t) => normaliser(t).replace(/[^a-z]/g, "");
+  const qEngagements = questions.find((q) => q.options.some((o) => compact(o.texte).startsWith("jecertifie")));
   const connues = [
     qRdv,
     qMotif,
@@ -309,7 +321,7 @@ export function propositions(lu) {
     qDepart,
     qEngagements,
   ];
-  const engagement = (re) => Boolean(qEngagements?.options.find((o) => re.test(normaliser(o.texte)))?.coche);
+  const engagement = (debut) => Boolean(qEngagements?.options.find((o) => compact(o.texte).startsWith(debut))?.coche);
   const aVerifier = (q) => Boolean(q?.aVerifier);
 
   const priseRdv = cochees(qRdv);
@@ -365,14 +377,14 @@ export function propositions(lu) {
         ...(qDepart ? { departSeul: accord(qDepart) } : {}),
       },
       engagements: {
-        certifie: engagement(/^je certifie/),
-        donnees: engagement(/^j'accepte que ces informations/),
-        informe: engagement(/^je reconnais avoir ete informe/),
-        representant: engagement(/^a cocher si rempli par un representant/),
+        certifie: engagement("jecertifie"),
+        donnees: engagement("jacceptequecesinformations"),
+        informe: engagement("jereconnaisavoireteinforme"),
+        representant: engagement("acochersiremplipar"),
       },
       signature: c.signature || "",
       autres: questions
-        .filter((q) => !connues.includes(q) && q.question !== "Sexe" && q.options.length)
+        .filter((q) => !connues.includes(q) && q.question !== "Sexe" && q.question.trim() && q.options.length)
         .map((q) => ({ question: q.question, reponse: cochees(q).join(", "), aVerifier: aVerifier(q) })),
     },
     alerte,
@@ -394,10 +406,28 @@ export function propositions(lu) {
 }
 
 // Même patient : nom, prénom et date de naissance identiques (accents et majuscules ignorés).
+// (Un dossier sans date de naissance, ou avec « * » d'un ancien import, est aussi reconnu.)
+const sansEtoile = (t) => normaliser(t).replace(/^[*\s]+/, "");
 export function memePatient(p, identite) {
   return (
-    normaliser(p.nom) === normaliser(identite.nom) &&
-    normaliser(p.prenom) === normaliser(identite.prenom) &&
-    (p.naissance || "") === identite.naissance
+    sansEtoile(p.nom) === sansEtoile(identite.nom) &&
+    sansEtoile(p.prenom) === sansEtoile(identite.prenom) &&
+    (!p.naissance || p.naissance === identite.naissance)
   );
+}
+
+// Aperçu d'un PDF (pages en images), pour l'afficher dans l'application.
+export async function imagesPdf(octets) {
+  const pdf = await pdfjs.getDocument({ data: new Uint8Array(octets), isEvalSupported: false }).promise;
+  const images = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const vue = page.getViewport({ scale: 1.6 });
+    const toile = document.createElement("canvas");
+    toile.width = Math.ceil(vue.width);
+    toile.height = Math.ceil(vue.height);
+    await page.render({ canvasContext: toile.getContext("2d"), viewport: vue }).promise;
+    images.push(toile.toDataURL("image/png"));
+  }
+  return images;
 }
