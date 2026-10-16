@@ -17,6 +17,7 @@ import {
 } from "./gestion.js";
 import { Verrou } from "./Historique.jsx";
 import { dansLieu, nomLieu } from "./lieux.js";
+import { demander } from "./demander.js";
 
 async function lireGestion() {
   try {
@@ -552,8 +553,8 @@ export function Relances({ cabinet, lieuActif = "", onOuvrirPatient, onCabinetCh
       patients: donnees.patients.map((p) => (p.id === patient.id ? { ...p, gestion } : p)),
     });
   }
-  function relance(r) {
-    const note = window.prompt("Relance effectuée. Note (facultatif) :", "");
+  async function relance(r) {
+    const note = await demander("Relance effectuée. Note (facultatif) :");
     if (note === null) return;
     majRelances(r.patient, (rel) => ({
       ...rel,

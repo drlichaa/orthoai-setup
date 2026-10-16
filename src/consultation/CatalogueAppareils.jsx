@@ -2,6 +2,7 @@
 import CleApi from "./CleApi.jsx";
 import ReglagesGestion, { ReglagesLieux, ReglagesMessagerie } from "./ReglagesGestion.jsx";
 import { OPERATIONS, SCENARIOS_PAR_DEFAUT } from "./scenarios.js";
+import { demander } from "./demander.js";
 
 function identifiant(nom, existants) {
   const base =
@@ -163,8 +164,8 @@ export default function CatalogueAppareils({
   const maj = (index, champ, valeur) =>
     onChange(appareils.map((a, i) => (i === index ? { ...a, [champ]: valeur } : a)));
 
-  function ajouter() {
-    const nom = window.prompt("Nom du nouvel appareil ?");
+  async function ajouter() {
+    const nom = await demander("Nom du nouvel appareil ?");
     if (!nom?.trim()) return;
     const id = identifiant(
       nom,

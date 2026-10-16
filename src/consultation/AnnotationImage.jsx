@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { demander } from "./demander.js";
 
 // Annotation d'une radio ou d'une photo : flèches, cercles, trait libre et
 // texte, dessinés sur une copie de l'image (l'original n'est pas modifié).
@@ -92,10 +93,11 @@ export default function AnnotationImage({ src, nom, onValider, onAnnuler }) {
     return { x: ((e.clientX - r.left) / r.width) * largeur, y: ((e.clientY - r.top) / r.height) * hauteur };
   }
 
-  function appui(e) {
+  async function appui(e) {
     if (outil === "texte") {
-      const texte = window.prompt("Texte à afficher sur l'image :");
-      if (texte?.trim()) setFormes((f) => [...f, { type: "texte", couleur, texte: texte.trim(), points: [point(e)] }]);
+      const ou = point(e);
+      const texte = await demander("Texte à afficher sur l'image :");
+      if (texte?.trim()) setFormes((f) => [...f, { type: "texte", couleur, texte: texte.trim(), points: [ou] }]);
       return;
     }
     e.currentTarget.setPointerCapture?.(e.pointerId);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { appelHistorique } from "./apiHistorique.js";
 import { dansLieu, nomLieu } from "./lieux.js";
+import { demander } from "./demander.js";
 
 // Historique des comptes rendus : chiffré et conservé sur cet ordinateur par
 // le serveur local, protégé par un mot de passe propre à cet ordinateur.
@@ -219,7 +220,7 @@ export default function Historique({ onOuvrir, onFermer, lieuActif = "", cabinet
   }
 
   async function reinitialiser() {
-    const saisie = window.prompt(
+    const saisie = await demander(
       "Mot de passe oublié : la seule solution est d'effacer tout l'historique de cet ordinateur, définitivement.\n\nTapez EFFACER pour confirmer.",
     );
     if (saisie !== "EFFACER") return;
