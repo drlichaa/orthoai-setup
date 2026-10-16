@@ -14,6 +14,8 @@ export default function EnvoiMail({
   categorie,
   modeleInitial,
   documents = [],
+  // Fichiers joints d'office : [{ nom, type, base64, taille }].
+  pieces = [],
   devisId,
   onFermer,
   onEnvoye,
@@ -28,7 +30,7 @@ export default function EnvoiMail({
     modele: "",
   });
   const [joints, setJoints] = useState(documents.map((d) => ({ ...d, inclus: true })));
-  const [fichiers, setFichiers] = useState([]);
+  const [fichiers, setFichiers] = useState(pieces);
   const [etat, setEtat] = useState({ enCours: false, erreur: "", ok: "" });
 
   const valeurs = {

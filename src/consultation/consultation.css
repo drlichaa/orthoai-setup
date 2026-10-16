@@ -671,3 +671,12 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-doc-appareil h2 { text-align: left; }
 @media (max-width: 700px) { .oa-reco-liste { columns: 1; } }
 .oa-lien-fiche { display: block; font-size: 0.85rem; margin-top: 2px; }
+.oa-reco { width: min(900px, 100%); }
+.oa-reco-apercus { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 12px; }
+.oa-reco-apercus img { width: 260px; max-width: 100%; border: 1px solid var(--cr-bord); border-radius: 8px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
+.oa-reco-pdf { padding: 8px 12px; border: 1px solid var(--cr-bord); border-radius: 8px; }
+/* Fiche illustrée imprimée : une page A4 paysage par fiche. */
+@page fiche { size: A4 landscape; margin: 6mm; }
+.oa-fiche-imprimee { page: fiche; display: block; width: 100%; height: auto; max-height: 196mm; object-fit: contain; break-after: page; }
+.oa-fiche-illustree { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0; }
+.oa-fiche-illustree img { height: 70px; border: 1px solid var(--cr-bord); border-radius: 6px; }

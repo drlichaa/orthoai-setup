@@ -8,9 +8,10 @@
 // - /api/session/... : connexion des autres ordinateurs du cabinet (voir acces.js).
 // - /api/cabinet : en-tête, logo, signature et catalogue d'appareils, partagés par tous les postes.
 // - sert aussi l'interface compilée (dist/) quand elle tourne dans l'application.
+import { creerFiches } from "./fichesPatients.js";
 import http from "node:http";
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { extname, join, normalize, resolve, sep } from "node:path";
+import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, buildReportSchema } from "./prompt.js";
 import { demarrerWhisper, etatWhisper, transcrire } from "./whisper.js";
@@ -251,6 +252,10 @@ export function demarrerServeur({
   genererPdf = null,
 } = {}) {
   const config = creerConfig(fichierConfig);
+  const fiches = creerFiches({
+    dossierStatique,
+    dossierPerso: fichierConfig ? join(dirname(fichierConfig), "fiches-patients") : null,
+  });
   const historique = creerHistorique(fichierHistorique);
   const sessions = creerSessions();
   const statique = dossierStatique ? resolve(dossierStatique) : null;
@@ -299,6 +304,32 @@ export function demarrerServeur({
       }
     }
     if (req.method === "GET" && url === "/api/session") return sendJson(res, 200, { distant });
+
+    // Fiches de recommandations illustrées (documents du cabinet).
+    const routeFiche = url.match(/^\/api\/cabinet\/fiches(?:\/([\w-]+))?(\/supprimer)?$/);
+    if (routeFiche) {
+      const [, id, supprimer] = routeFiche;
+      try {
+        if (req.method === "GET" && !id) return sendJson(res, 200, { fiches: fiches.lister() });
+        if (req.method === "GET") {
+          const f = fiches.lire(id);
+          if (!f) return sendJson(res, 404, { error: "Aucune fiche pour cet appareil." });
+          res.writeHead(200, { "Content-Type": f.type, "Cache-Control": "no-store" });
+          return res.end(f.octets);
+        }
+        if (req.method === "POST" && supprimer) {
+          fiches.supprimer(id);
+          return sendJson(res, 200, { fiches: fiches.lister() });
+        }
+        if (req.method === "POST") {
+          const type = (req.headers["content-type"] || "").split(";")[0];
+          fiches.enregistrer(id, type, await readBody(req, MAX_IMAGE_BYTES));
+          return sendJson(res, 200, { fiches: fiches.lister() });
+        }
+      } catch (err) {
+        return sendJson(res, 400, { error: err.message });
+      }
+    }
 
     if (url === "/api/cabinet") {
       if (req.method === "GET") {

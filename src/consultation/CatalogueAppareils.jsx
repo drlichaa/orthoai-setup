@@ -1,4 +1,5 @@
 // Réglages du cabinet et catalogue des appareils avec leurs textes pré-enregistrés.
+import { useEffect, useState } from "react";
 import CleApi from "./CleApi.jsx";
 import ReglagesGestion, { ReglagesLieux, ReglagesMessagerie } from "./ReglagesGestion.jsx";
 import { OPERATIONS, SCENARIOS_PAR_DEFAUT } from "./scenarios.js";
@@ -152,6 +153,60 @@ function EditeurScenarios({ scenarios, onChange, onReinitialiser }) {
   );
 }
 
+// Fiche illustrée remise au patient à la pose (« On vient de te poser… ») : aperçu et remplacement.
+function FicheIllustree({ id, fiche, onFiches }) {
+  const [etat, setEtat] = useState({ enCours: false, erreur: "" });
+  async function envoyer(e) {
+    const fichier = e.target.files?.[0];
+    e.target.value = "";
+    if (!fichier) return;
+    setEtat({ enCours: true, erreur: "" });
+    try {
+      const rep = await fetch(`/api/cabinet/fiches/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": fichier.type },
+        body: fichier,
+      });
+      const d = await rep.json();
+      if (!rep.ok) throw new Error(d.error || `Erreur ${rep.status}`);
+      onFiches(d.fiches);
+      setEtat({ enCours: false, erreur: "" });
+    } catch (err) {
+      setEtat({ enCours: false, erreur: err.message });
+    }
+  }
+  async function retirer() {
+    const rep = await fetch(`/api/cabinet/fiches/${id}/supprimer`, { method: "POST" });
+    if (rep.ok) onFiches((await rep.json()).fiches);
+  }
+  return (
+    <div className="oa-fiche-illustree">
+      <span className="cr-aide">Fiche illustrée remise à la pose :</span>
+      {fiche ? (
+        fiche.type === "application/pdf" ? (
+          <a href={`/api/cabinet/fiches/${id}`} download>
+            📄 PDF
+          </a>
+        ) : (
+          <img src={`/api/cabinet/fiches/${id}?v=${fiche.perso ? "perso" : "defaut"}`} alt="" />
+        )
+      ) : (
+        <span className="cr-aide">aucune (le texte ci-dessous sera utilisé)</span>
+      )}
+      <label className="cr-bouton-fichier">
+        {etat.enCours ? "Envoi…" : fiche ? "Remplacer (PNG, JPG ou PDF)" : "Ajouter une fiche (PNG, JPG ou PDF)"}
+        <input type="file" accept="image/png,image/jpeg,application/pdf" onChange={envoyer} />
+      </label>
+      {fiche?.perso && (
+        <button type="button" className="cr-lien" onClick={retirer}>
+          Revenir à la fiche fournie
+        </button>
+      )}
+      {etat.erreur && <span className="cr-alerte">{etat.erreur}</span>}
+    </div>
+  );
+}
+
 export default function CatalogueAppareils({
   appareils,
   onChange,
@@ -160,6 +215,18 @@ export default function CatalogueAppareils({
   onCabinetChange,
   onFermer,
 }) {
+  // Fiches illustrées du cabinet (serveur).
+  const [fiches, setFiches] = useState({});
+  useEffect(() => {
+    let actif = true;
+    fetch("/api/cabinet/fiches")
+      .then((r) => (r.ok ? r.json() : { fiches: {} }))
+      .then((d) => actif && setFiches(d.fiches || {}))
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+  }, []);
   const maj = (index, champ, valeur) =>
     onChange(appareils.map((a, i) => (i === index ? { ...a, [champ]: valeur } : a)));
 
@@ -342,6 +409,7 @@ export default function CatalogueAppareils({
                 </button>
               </div>
             </div>
+            <FicheIllustree id={a.id} fiche={fiches[a.id]} onFiches={setFiches} />
             <label className="cr-bloc">
               Texte remis au patient
               <textarea rows={4} value={a.texte} onChange={(e) => maj(i, "texte", e.target.value)} />
