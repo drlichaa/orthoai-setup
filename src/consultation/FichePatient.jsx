@@ -24,6 +24,7 @@ import {
   formaterDate,
   formaterNom,
   formaterPrenom,
+  refusQuestionnaire,
 } from "./format.js";
 import { dentsAvecEtat } from "./dents.js";
 import SchemaDentaire from "./SchemaDentaire.jsx";
@@ -449,6 +450,7 @@ export default function FichePatient({
   // Images hors séries (anciennes, radios annotées…) et sans les empreintes 3D.
   const mediasSeries = new Set(patient.series.flatMap((s) => Object.values(s.elements).map((e) => e.media)));
   const images = patient.medias.filter((m) => (m.type || "image/jpeg").startsWith("image/"));
+  const refus = refusQuestionnaire(patient.questionnaire);
   const autresImages = images.filter((m) => !mediasSeries.has(m.id));
 
   return (
@@ -534,6 +536,9 @@ export default function FichePatient({
             </div>
           </div>
           {patient.alerte && <p className="cr-alerte cr-alerte-patient">⚠ {patient.alerte}</p>}
+          {refus.length > 0 && (
+            <p className="cr-alerte cr-alerte-patient">⛔ Refus (questionnaire médical) : {refus.join(" · ")}</p>
+          )}
         </section>
 
         <nav className="cr-onglets" aria-label="Sections du dossier">
