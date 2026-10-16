@@ -448,6 +448,18 @@ export default function FichePatient({
 
   // En-tête des documents : adresse du cabinet où le patient est suivi.
   const cabinetPatient = cabinetPour(cabinet, patient.lieu);
+  // Frise des semestres : en haut de la fiche clinique et du parcours de traitement.
+  const frise = patient.gestion?.semestres?.debut ? (
+    <section className="cr-carte">
+      <div className="cr-titre-section">
+        <h2>Frise du traitement</h2>
+        <button type="button" className="cr-lien" onClick={() => setOnglet("gestion")}>
+          Devis →
+        </button>
+      </div>
+      <FriseTraitement patient={patient} gestion={patient.gestion} />
+    </section>
+  ) : null;
   // Date de la 1ère consultation : la plus ancienne connue (compte rendu, devis, début, création du dossier).
   const datePremiere = [
     ...(dossier?.comptesRendus || []).map((c) => c.patient?.date),
@@ -564,10 +576,11 @@ export default function FichePatient({
 
         <nav className="cr-onglets" aria-label="Sections du dossier">
           {[
-            ["clinique", "Fiche clinique"],
             ["patient", "Patient"],
+            ["clinique", "Fiche clinique"],
+            ["parcours", "Parcours de traitement"],
             ["images", `Photos & radios (${images.length})`],
-            ["gestion", "Devis & semestres"],
+            ["gestion", "Devis"],
             ["suivi", "Suivi du traitement"],
           ].map(([cle, libelle]) => (
             <button
@@ -584,27 +597,7 @@ export default function FichePatient({
         {onglet === "clinique" && (
           <div className="cr-fiche-clinique">
             <div className="cr-fiche-clinique-principal">
-              {patient.gestion?.semestres?.debut && (
-                <section className="cr-carte">
-                  <div className="cr-titre-section">
-                    <h2>Frise du traitement</h2>
-                    <button type="button" className="cr-lien" onClick={() => setOnglet("gestion")}>
-                      Devis &amp; semestres →
-                    </button>
-                  </div>
-                  <FriseTraitement patient={patient} gestion={patient.gestion} />
-                </section>
-              )}
-              <Parcours
-                patient={patient}
-                maj={maj}
-                majGestion={majGestion}
-                cabinet={cabinetPatient}
-                datePremiere={datePremiere}
-                onImprimer={imprimerDocument}
-                onOnglet={setOnglet}
-                catalogue={appareils}
-              />
+              {frise}
               <section className="cr-carte">
                 <h2>Traitement en cours</h2>
                 <div className="cr-champs-ligne">{champ("debut", "Début du traitement", "date")}</div>
@@ -927,6 +920,22 @@ export default function FichePatient({
               onAjouter={() => setOnglet("images")}
             />
           </div>
+        )}
+
+        {onglet === "parcours" && (
+          <>
+            {frise}
+            <Parcours
+              patient={patient}
+              maj={maj}
+              majGestion={majGestion}
+              cabinet={cabinetPatient}
+              datePremiere={datePremiere}
+              onImprimer={imprimerDocument}
+              onOnglet={setOnglet}
+              catalogue={appareils}
+            />
+          </>
         )}
 
         {onglet === "patient" && (

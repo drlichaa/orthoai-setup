@@ -204,7 +204,7 @@ avec votre DPO.
 
 ## Gestion du traitement (reprise d'OrthoManage)
 
-- **Devis & semestres** (onglet du dossier) : devis conventionnel au format officiel, avec ou sans prise en charge (HN proposé automatiquement à partir de 16 ans à la 1ère consultation). Barème réglable dans Paramètres → Honoraires (semestre interception / bagues métal 980 €, céramique 1080 €, aligneurs 1750 €, contention 750 €). Impression / PDF, envoi par e-mail, « Signé : démarrer » crée les semestres tous les 6 mois avec leurs montants.
+- **Devis** (onglet du dossier) : devis conventionnel au format officiel, avec ou sans prise en charge (HN proposé automatiquement à partir de 16 ans à la 1ère consultation). Barème réglable dans Paramètres → Honoraires (semestre interception / bagues métal 980 €, céramique 1080 €, aligneurs 1750 €, contention 750 €). Impression / PDF, envoi par e-mail, « Signé : démarrer » crée les semestres tous les 6 mois avec leurs montants.
 - **DEP** : formulaire Cerfa 10518*01 rempli automatiquement (diagnostic en cases à cocher), imprimé sur le fond officiel (`public/dep-page1.jpg`, `dep-page2.jpg`), historique et case « envoyée ».
 - **Suivi du traitement** (onglet) : progression, laboratoire (envoyé / reçu / posé), aligneurs avec calendrier modifiable, rappels différés, alerte « non revu depuis X mois », incidents, chronologie.
 - **Tâches** et **Laboratoire** (menu) : tâches manuelles partagées par le cabinet + échéances automatiques (facturation, DEP, envoi et renouvellement de DEP, non revus, rappels, appareils en retard), réglables dans Paramètres → Automatisations. Alertes résumées sur le tableau de bord.
@@ -216,12 +216,12 @@ avec votre DPO.
 
 - Clé de rattachement : cabinet + code patient. Un dossier OrthoAI sans code, de même nom, prénom et date de naissance (dans ce cabinet ou sans cabinet), est rattaché au lieu d'être dupliqué.
 - Les champs déjà remplis dans OrthoAI ne sont jamais écrasés ; l'import ne fait que compléter les champs vides (téléphone, e-mail, correspondants, début du traitement…).
-- Le dernier état OrthoFast (type de traitement, DEP faite et prochaine, règlements dus) est remplacé à chaque import et s'affiche dans les onglets **Patient** et **Devis & semestres** de la fiche.
+- Le dernier état OrthoFast (type de traitement, DEP faite et prochaine, règlements dus) est remplacé à chaque import et s'affiche dans les onglets **Patient** et **Devis** de la fiche.
 - Les exports Excel/CSV sont exclus du dépôt (`.gitignore`) : ne jamais les y ajouter.
 
 ## Frise du traitement
 
-Créée dès qu'un devis est validé (« Signé : démarrer ») : un segment par semestre (6 mois à partir du début du traitement), puis l'année de contention (C1). Elle s'affiche en haut de la **Fiche clinique** et dans **Devis & semestres**.
+Créée dès qu'un devis est validé (« Signé : démarrer ») : un segment par semestre (6 mois à partir du début du traitement), puis l'année de contention (C1). Elle s'affiche en haut de la **Fiche clinique** et dans **Devis**.
 
 - Le temps écoulé remplit les segments en bleu (jaune pour la contention) ; un trait rouge marque aujourd'hui.
 - Une DEP couvre deux semestres (S1-S2, S3-S4, S5-S6), puis une DEP pour la contention. Dès qu'une DEP est imprimée, un point vert apparaît sur les semestres qu'elle couvre ; un rond orange signale une DEP due. « Préparer une DEP » propose automatiquement la suivante.
@@ -244,15 +244,15 @@ Page **Relances** (menu) : trois listes, filtrées par cabinet.
 
 **Modèles** : objets et messages types classés par catégorie (Devis, Compte rendu, Rendez-vous, Courrier, Autre), modifiables. Champs remplacés : `{prenom}`, `{nom}`, `{praticien}`, `{cabinet}`, `{lienRdv}`, `{date}`.
 
-**Envoyer un devis** : Devis & semestres → bouton « E-mail » du devis. Le modèle correspondant au traitement (métal, céramique, gouttières) est proposé, le devis est joint en PDF (`AAAAMMJJ_Code_DevisConventionnel.pdf`), d'autres fichiers peuvent être ajoutés. Après l'envoi, le devis est marqué « envoyé » et l'envoi est noté dans le dossier (date, destinataire, objet, pièces).
+**Envoyer un devis** : Devis → bouton « E-mail » du devis. Le modèle correspondant au traitement (métal, céramique, gouttières) est proposé, le devis est joint en PDF (`AAAAMMJJ_Code_DevisConventionnel.pdf`), d'autres fichiers peuvent être ajoutés. Après l'envoi, le devis est marqué « envoyé » et l'envoi est noté dans le dossier (date, destinataire, objet, pièces).
 
 **Envoyer un compte rendu ou un courrier** : bouton « E-mail » à côté de « Imprimer / PDF » (compte rendu de consultation), et sur chaque courrier ou ordonnance (consultation et dossier patient). Le document est joint en PDF, avec ses images. Destinataire : l'« E-mail du destinataire » saisi sur le courrier (confrère, modèle « Courrier pour un confrère »), sinon l'adresse du patient (modèle « Courrier remis au patient »). La consultation est enregistrée avant l'envoi pour que l'envoi soit noté dans le dossier.
 
 Le PDF est créé par l'application du cabinet (Electron) ; les tests automatiques utilisent un faux serveur de messagerie local (`ORTHOAI_SMTP_TEST`), jamais Gmail.
 
-## Parcours de traitement (fiche clinique)
+## Parcours de traitement (onglet du dossier)
 
-Bloc « Parcours de traitement » sous la frise, étapes cochables et datées :
+Onglet « Parcours de traitement » (après Patient et Fiche clinique), sous la frise, étapes cochables et datées :
 
 1. **Consultation** : date de la 1ère consultation, radios (panoramique, téléradio de profil), devis remis.
 2. **Bilan** : date du bilan, 12 photos, empreinte 3Shape, DEP « Début de traitement » (cochée dès qu'elle est imprimée), devis signé (bouton « Devis signé »), consentement éclairé signé (enfant si moins de 16 ans à la 1ère consultation, adulte sinon ; imprimable ou envoyé par e-mail), bilan facturé (TO5 + TO15 : 200 €, 350 € pour les gouttières).
@@ -271,7 +271,7 @@ Patients → « Questionnaire WeClever (PDF) » (crée ou complète un dossier),
 - **100 % local** : le PDF est lu dans l'application avec pdf.js (texte et positions) ; les cases cochées sont mesurées sur le rendu de la page (part de pixels sombres à gauche de chaque option). Aucun service en ligne, pas d'API Anthropic.
 - **Écran de vérification obligatoire** : PDF à gauche, champs proposés à droite, réponses douteuses en orange. Rien n'est enregistré avant « Valider ». Un champ déjà rempli n'est remplacé que si « Remplacer » est coché.
 - Dossier existant (mêmes nom, prénom, date de naissance) : proposé pour être complété ; sinon création (cabinet à choisir).
-- Correspondance : identité et contacts, « Adressé par » (prise de RDV), n° de sécurité sociale, adresse, mutuelle et profession (onglet Devis & semestres → assuré, utilisés pour la DEP), questionnaire (motifs, antécédents, ORL, accords, engagements, signature, questions propres à la version adulte), alerte du dossier (allergie, médicaments, problème de santé, sauf « RAS »/« non », ajoutés à l'alerte existante).
+- Correspondance : identité et contacts, « Adressé par » (prise de RDV), n° de sécurité sociale, adresse, mutuelle et profession (onglet Devis → assuré, utilisés pour la DEP), questionnaire (motifs, antécédents, ORL, accords, engagements, signature, questions propres à la version adulte), alerte du dossier (allergie, médicaments, problème de santé, sauf « RAS »/« non », ajoutés à l'alerte existante).
 - Version adulte (« Ortho adulte ») : nom de naissance, profession, grossesse (avec le nombre de mois, ajoutée à l'alerte), motif en texte libre, antécédent orthodontique, antécédents parodontaux, tabac ; pas de questions propres à l'enfant (déglutition, élocution, succion, ORL, radiographies, départ seul).
 - Refus d'enregistrement de la consultation : avertissement à côté du bouton « Démarrer » de la consultation de ce patient.
 - Le PDF est rangé chiffré dans le dossier (« Ouvrir le PDF » dans l'onglet Patient).
@@ -282,3 +282,7 @@ Patients → « Questionnaire WeClever (PDF) » (crée ou complète un dossier),
 Fiches illustrées du cabinet (« On vient de te poser… ») : plaque, bagues (métal, céramique), disjoncteur, ELN, PUL, Carrière, gouttières Spark. À la validation de « Pose effectuée » (Parcours) ou en cochant « Posé » dans Suivi → Laboratoire, la fenêtre « Fiche de recommandations » propose la fiche de l'appareil posé (aperçu). « Envoyer par e-mail » joint la fiche telle quelle (PNG ou PDF) ; « Imprimer » l'imprime en pleine page A4 paysage. Un appareil sans fiche illustrée utilise le texte du catalogue (PDF généré).
 
 Paramètres → catalogue des appareils : pour chaque appareil, aperçu de la fiche, « Remplacer (PNG, JPG ou PDF) » par l'original du cabinet, ou « Revenir à la fiche fournie ». Les fiches remplacées sont rangées à côté des réglages du serveur (dossier fiches-patients) ; ce sont des documents du cabinet, sans donnée patient.
+
+## Onglets du dossier patient
+
+Dans l'ordre : Patient (informations administratives, questionnaire médical), Fiche clinique, Parcours de traitement (frise et étapes), Photos & radios, Devis (devis, semestres, DEP), Suivi du traitement. Le dossier s'ouvre sur la fiche clinique.

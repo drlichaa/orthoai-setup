@@ -1,4 +1,4 @@
-// Onglet « Devis & semestres » du dossier : devis conventionnel ou HN, validation,
+// Onglet « Devis » du dossier : devis conventionnel ou HN, validation,
 // semestres (facturation), DEP sur le Cerfa officiel.
 import { DonneesOrthofast } from "./ImportOrthofast.jsx";
 import { useState } from "react";
@@ -223,7 +223,7 @@ function Devis({ patient, g, majGestion, maj, cabinet, datePremiere, onImprimer 
   const [envoi, setEnvoi] = useState(null);
   const liste = g.devis || [];
 
-  // Devis signé : noté pour le bilan ; les semestres démarrent à la pose (Fiche clinique → Parcours).
+  // Devis signé : noté pour le bilan ; les semestres démarrent à la pose (onglet Parcours de traitement).
   async function valider(devis) {
     const iso = await demander("Date de signature du devis :", { type: "date", defaut: aujourdhui() });
     if (!iso) return;
@@ -352,8 +352,7 @@ function Semestres({ patient, g, majGestion }) {
       </div>
       {!g.semestres?.debut ? (
         <p className="cr-aide">
-          Les semestres démarrent le jour de la pose de l'appareil : Fiche clinique → Parcours de traitement → « Pose
-          effectuée ».
+          Les semestres démarrent le jour de la pose de l'appareil : onglet Parcours de traitement → « Pose effectuée ».
         </p>
       ) : (
         <>
