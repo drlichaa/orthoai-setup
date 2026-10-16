@@ -69,6 +69,21 @@ function Etape({ numero, titre, fait, actuelle, children }) {
   );
 }
 
+// Ligne ajoutée au suivi des séances à la date donnée (séance créée à sa place si besoin).
+function noterSeance(seances, iso, ligne) {
+  const date = iso.split("-").reverse().join("/");
+  const liste = seances || [];
+  const index = liste.findIndex((s) => isoDepuisFr(s.date) === iso);
+  if (index !== -1) {
+    const fait = liste[index].fait || "";
+    if (fait.split("\n").includes(ligne)) return liste;
+    return liste.map((s, i) => (i === index ? { ...s, fait: fait ? `${fait}\n${ligne}` : ligne } : s));
+  }
+  const seance = { date, fait: ligne, prochaine: "", recollages: [] };
+  const apres = liste.findIndex((s) => (isoDepuisFr(s.date) || "9999") > iso);
+  return apres === -1 ? [...liste, seance] : [...liste.slice(0, apres), seance, ...liste.slice(apres)];
+}
+
 const demanderDate = (question, defaut) => {
   const reponse = window.prompt(question, (defaut || aujourdhui()).split("-").reverse().join("/"));
   if (reponse === null) return null;
@@ -136,8 +151,14 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
   );
 
   function poser(date, derogation = null) {
+    const appareil = devis?.description || patient.type || "";
     maj(
-      { statut: "En traitement", debut: date, gestion: { ...g, ...gestionApresPose(g, date, derogation) } },
+      {
+        statut: "En traitement",
+        debut: date,
+        seances: noterSeance(patient.seances, date, `Pose de l'appareil${appareil ? ` (${appareil})` : ""}`),
+        gestion: { ...g, ...gestionApresPose(g, date, derogation) },
+      },
       { immediat: true },
     );
     setBlocage(null);
@@ -155,6 +176,7 @@ export default function Parcours({ patient, maj, majGestion, cabinet, datePremie
     maj(
       {
         statut: "En contention",
+        seances: noterSeance(patient.seances, date, "Dépose de l'appareil, mise en place des contentions"),
         gestion: { ...g, phase: "contention", phaseDepuis: date, parcours: { ...(g.parcours || {}), depose: date } },
       },
       { immediat: true },
