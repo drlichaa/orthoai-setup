@@ -63,7 +63,9 @@ export const GENRES_PLAGES = {
 export const FAUTEUILS = { 1: "Fauteuil 1 · Cabinet ortho", 2: "Fauteuil 2 · Cabinet blanc" };
 
 export function minutes(hhmm) {
-  const [h, mn] = String(hhmm || "0:0").split(":").map(Number);
+  const [h, mn] = String(hhmm || "0:0")
+    .split(":")
+    .map(Number);
   return h * 60 + mn;
 }
 
@@ -113,4 +115,43 @@ export function chevauche(a, b) {
     minutes(a.debut) < minutes(b.debut) + b.duree &&
     minutes(b.debut) < minutes(a.debut) + a.duree
   );
+}
+
+// Heures proposées : pile ou au quart d'heure.
+export const PAS = 15;
+export const auQuart = (min) => Math.ceil(min / PAS) * PAS;
+
+// Un motif se place dans une plage de son fauteuil : plages roses = RDV longs (30 min et plus),
+// bleues = RDV courts, créneaux de 1ère consultation = tous les motifs du fauteuil 2.
+export function compatible(motif, plage) {
+  if (!motif || plage.fauteuil !== motif.fauteuil) return false;
+  if (plage.genre === "long") return motif.duree >= 30;
+  if (plage.genre === "court") return motif.duree < 30;
+  return true;
+}
+
+// Créneaux libres pour un motif sur des dates (index 0 = lundi), à partir de maintenant.
+export function creneauxLibres({ motif, plages, rdv, dates, maintenant = new Date() }) {
+  if (!motif) return [];
+  const auj = maintenant.toLocaleDateString("sv-SE");
+  const minuteMaintenant = maintenant.getHours() * 60 + maintenant.getMinutes();
+  const pas = auQuart(motif.duree);
+  const liste = [];
+  dates.forEach((date, i) => {
+    if (date < auj) return;
+    const occupes = rdv.filter((r) => r.date === date && r.fauteuil === motif.fauteuil && r.statut !== "annule");
+    for (const plage of plages.filter((p) => p.jour === i + 1 && compatible(motif, p))) {
+      let debut = auQuart(minutes(plage.debut));
+      const fin = minutes(plage.fin);
+      while (debut + motif.duree <= fin) {
+        const pris = occupes.some((r) => debut < minutes(r.debut) + r.duree && minutes(r.debut) < debut + motif.duree);
+        const passe = date === auj && debut < minuteMaintenant;
+        if (!pris && !passe) {
+          liste.push({ date, debut: heure(debut), fin: heure(debut + motif.duree), fauteuil: motif.fauteuil });
+          debut += pas;
+        } else debut += PAS;
+      }
+    }
+  });
+  return liste;
 }

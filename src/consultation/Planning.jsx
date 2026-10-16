@@ -5,10 +5,14 @@ import { useEffect, useState } from "react";
 import { appelApi } from "./apiHistorique.js";
 import { formaterDate } from "./format.js";
 import { Verrou } from "./Historique.jsx";
+import { normaliser } from "./questionnaireWeclever.js";
 import {
   FAUTEUILS,
   GENRES_PLAGES,
+  PAS,
   chevauche,
+  compatible,
+  creneauxLibres,
   heure,
   lundi,
   minutes,
@@ -73,7 +77,7 @@ function FenetreRdv({ rdv, motifs, patients, tous, plages, onEnregistrer, onSupp
           </label>
           <label>
             Heure
-            <input type="time" step="300" value={r.debut} onChange={(e) => setR({ ...r, debut: e.target.value })} />
+            <input type="time" step="900" value={r.debut} onChange={(e) => setR({ ...r, debut: e.target.value })} />
           </label>
           <label>
             Fauteuil
@@ -202,6 +206,14 @@ function FenetreRdv({ rdv, motifs, patients, tous, plages, onEnregistrer, onSupp
   );
 }
 
+// Motif proposé pour un créneau cliqué : selon la plage (longue → pose, courte → suivi…).
+function motifPourPlage(motifs, plage, fauteuil) {
+  return (
+    motifs.find((x) => x.fauteuil === fauteuil && (plage ? compatible(x, plage) : true)) ||
+    motifs.find((x) => x.fauteuil === fauteuil)
+  );
+}
+
 export default function Planning({ cabinet, onOuvrirPatient }) {
   const { motifs, plages } = reglagesPlanning(cabinet);
   const [semaine, setSemaine] = useState(() => lundi(aujourdhui()));
@@ -210,6 +222,12 @@ export default function Planning({ cabinet, onOuvrirPatient }) {
   const [edition, setEdition] = useState(null);
   const [tousJours, setTousJours] = useState(false);
   const [version, setVersion] = useState(0);
+  // « Trouver un créneau » : motif recherché et texte de recherche.
+  const [motifRecherche, setMotifRecherche] = useState("");
+  const [filtre, setFiltre] = useState("");
+  // Créneau survolé : { date, fauteuil, debut (minutes), jour }.
+  const [survol, setSurvol] = useState(null);
+  const [messageDispo, setMessageDispo] = useState("");
 
   useEffect(() => {
     let actif = true;
@@ -256,12 +274,15 @@ export default function Planning({ cabinet, onOuvrirPatient }) {
       </div>
     );
 
-  const dates = JOURS.map((_, i) => plusJours(semaine, i));
+  const datesDe = (lundiSemaine) => JOURS.map((_, i) => plusJours(lundiSemaine, i));
+  const dates = datesDe(semaine);
   const rdvSemaine = donnees.rdv.filter((r) => dates.includes(r.date));
   const joursAffiches = JOURS.map((nom, i) => ({ nom, i, date: dates[i] })).filter(
     (j) => tousJours || plages.some((p) => p.jour === j.i + 1) || rdvSemaine.some((r) => r.date === j.date),
   );
   const motifDe = (id) => motifs.find((x) => x.id === id);
+  const recherche = motifDe(motifRecherche);
+  const libres = creneauxLibres({ motif: recherche, plages, rdv: donnees.rdv, dates });
   const auj = aujourdhui();
   const maintenant = new Date();
   const minuteMaintenant = maintenant.getHours() * 60 + maintenant.getMinutes();
@@ -276,33 +297,59 @@ export default function Planning({ cabinet, onOuvrirPatient }) {
     setDonnees((d) => ({ rdv: d.rdv.filter((x) => x.id !== id) }));
     setEdition(null);
   }
-  function nouveau(e, date, fauteuil, jour) {
+
+  // Créneau sous la souris : début au quart d'heure, durée du motif recherché ou proposé par la plage.
+  function creneauSous(e, date, fauteuil, jour) {
     const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
-    const debut = Math.min(FERMETURE - 5, OUVERTURE + Math.floor(y / PX / 5) * 5);
+    const minute = OUVERTURE + Math.floor(y / PX / PAS) * PAS;
     const plage = plages.find(
-      (p) => p.fauteuil === fauteuil && p.jour === jour + 1 && minutes(p.debut) <= debut && debut < minutes(p.fin),
+      (p) => p.fauteuil === fauteuil && p.jour === jour + 1 && minutes(p.debut) <= minute && minute < minutes(p.fin),
     );
-    // Motif proposé selon la plage : long → pose, court → suivi, créneau → 1ère consultation.
-    const parDefaut =
-      motifs.find(
-        (x) =>
-          x.fauteuil === fauteuil &&
-          (plage?.genre === "long" ? x.duree >= 30 : plage?.genre === "court" ? x.duree < 30 : true),
-      ) || motifs.find((x) => x.fauteuil === fauteuil);
+    const motif = recherche?.fauteuil === fauteuil ? recherche : motifPourPlage(motifs, plage, fauteuil);
+    // Créneau de 1ère consultation : il commence au début du créneau.
+    const debut = plage?.genre === "consultation" ? minutes(plage.debut) : minute;
+    const fin = debut + (motif?.duree || 15);
+    const libre =
+      Boolean(plage) &&
+      fin <= minutes(plage.fin) &&
+      !donnees.rdv.some(
+        (r) =>
+          r.date === date &&
+          r.fauteuil === fauteuil &&
+          r.statut !== "annule" &&
+          debut < minutes(r.debut) + r.duree &&
+          minutes(r.debut) < fin,
+      );
+    return { date, fauteuil, jour, debut, fin, motif, libre };
+  }
+  function ouvrir(c) {
     setEdition({
-      date,
-      debut: plage?.genre === "consultation" ? plage.debut : heure(debut),
-      fauteuil,
-      motif: parDefaut?.id || "",
-      duree: parDefaut?.duree || 15,
+      date: c.date,
+      debut: heure(c.debut),
+      fauteuil: c.fauteuil,
+      motif: c.motif?.id || "",
+      duree: c.motif?.duree || 15,
       statut: "prevu",
       lieu: "chesnay",
     });
+  }
+  function prochaineDispo() {
+    for (let k = 0; k < 26; k++) {
+      const lundiK = plusJours(lundi(auj), 7 * k);
+      if (creneauxLibres({ motif: recherche, plages, rdv: donnees.rdv, dates: datesDe(lundiK) }).length) {
+        setSemaine(lundiK);
+        setMessageDispo("");
+        return;
+      }
+    }
+    setMessageDispo("Aucun créneau libre dans les 6 prochains mois pour ce motif.");
   }
 
   const hauteur = (FERMETURE - OUVERTURE) * PX;
   const heures = [];
   for (let t = OUVERTURE; t <= FERMETURE; t += 30) heures.push(t);
+  const motifsFiltres = motifs.filter((x) => normaliser(x.nom).includes(normaliser(filtre)));
+  const creneauxDuJour = (date, f) => libres.filter((c) => c.date === date && c.fauteuil === f);
 
   return (
     <div className="cr-app cr-app-large oa-planning">
@@ -347,111 +394,204 @@ export default function Planning({ cabinet, onOuvrirPatient }) {
         </span>
       </div>
 
-      <div
-        className="oa-planning-grille"
-        style={{ gridTemplateColumns: `52px repeat(${joursAffiches.length * 2}, minmax(120px, 1fr))` }}
-      >
-        <div className="oa-planning-coin" />
-        {joursAffiches.map((j) => (
-          <div
-            key={j.date}
-            className={`oa-planning-jour${j.date === auj ? " aujourdhui" : ""}`}
-            style={{ gridColumn: "span 2" }}
-          >
-            {j.nom} {formaterDate(j.date).slice(0, 5)}
-          </div>
-        ))}
-        <div className="oa-planning-coin" />
-        {joursAffiches.map((j) =>
-          [1, 2].map((f) => (
-            <div key={`${j.date}-${f}`} className="oa-planning-fauteuil">
-              {f === 1 ? "Fauteuil 1 · ortho" : "Fauteuil 2 · blanc"}
-            </div>
-          )),
-        )}
-        <div className="oa-planning-heures" style={{ height: hauteur }}>
-          {heures.map((t) => (
-            <span key={t} style={{ top: (t - OUVERTURE) * PX }}>
-              {t % 60 === 0 ? heure(t) : ""}
-            </span>
-          ))}
-        </div>
-        {joursAffiches.map((j) =>
-          [1, 2].map((f) => (
-            <div
-              key={`${j.date}-${f}-col`}
-              className={`oa-planning-colonne f${f}`}
-              style={{ height: hauteur }}
-              onClick={(e) =>
-                e.target === e.currentTarget || e.target.dataset.plage ? nouveau(e, j.date, f, j.i) : null
-              }
-              role="presentation"
-            >
-              {plages
-                .filter((p) => p.fauteuil === f && p.jour === j.i + 1)
-                .map((p) => (
-                  <div
-                    key={`${p.debut}-${p.genre}`}
-                    data-plage="1"
-                    className={`oa-planning-plage ${p.genre}`}
-                    style={{
-                      top: (minutes(p.debut) - OUVERTURE) * PX,
-                      height: (minutes(p.fin) - minutes(p.debut)) * PX,
-                      background: GENRES_PLAGES[p.genre]?.couleur,
-                      borderColor: GENRES_PLAGES[p.genre]?.bord,
-                    }}
-                  />
-                ))}
-              {j.date === auj && minuteMaintenant > OUVERTURE && minuteMaintenant < FERMETURE && (
-                <div className="oa-planning-maintenant" style={{ top: (minuteMaintenant - OUVERTURE) * PX }} />
-              )}
-              {rdvSemaine
-                .filter((r) => r.date === j.date && r.fauteuil === f)
-                .sort((a, b) => a.debut.localeCompare(b.debut))
-                .map((r) => {
-                  const mo = motifDe(r.motif);
-                  const couleur = mo?.couleur || "#cbd5e1";
-                  return (
+      <div className="oa-planning-corps">
+        <aside className="oa-planning-cote">
+          <h2>Trouver un créneau</h2>
+          {recherche ? (
+            <>
+              <div className="oa-motif-choisi" style={{ borderLeftColor: recherche.couleur }}>
+                <span>
+                  <b>{recherche.nom}</b>
+                  <small>
+                    {recherche.duree} min · {FAUTEUILS[recherche.fauteuil]}
+                  </small>
+                </span>
+                <button
+                  type="button"
+                  className="cr-lien"
+                  aria-label="Retirer le motif"
+                  onClick={() => {
+                    setMotifRecherche("");
+                    setMessageDispo("");
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+              <button type="button" className="principal oa-prochaine-dispo" onClick={prochaineDispo}>
+                Prochaine dispo →
+              </button>
+              {messageDispo && <p className="cr-aide">{messageDispo}</p>}
+              <p className="cr-aide">
+                {libres.length
+                  ? `${libres.length} créneau(x) libre(s) cette semaine, en vert dans le planning :`
+                  : "Aucun créneau libre cette semaine."}
+              </p>
+              <ul className="oa-propositions">
+                {libres.slice(0, 40).map((c) => (
+                  <li key={`${c.date}-${c.debut}`}>
                     <button
-                      key={r.id}
                       type="button"
-                      className={`oa-rdv ${r.statut}`}
-                      title={`${r.debut} · ${r.nom} · ${mo?.nom || r.motif}${r.note ? ` · ${r.note}` : ""}`}
-                      style={{
-                        top: (minutes(r.debut) - OUVERTURE) * PX,
-                        height: Math.max(14, r.duree * PX - 2),
-                        background: couleur,
-                        color: texteSur(couleur),
-                      }}
-                      onClick={() => setEdition(r)}
+                      className="cr-lien"
+                      onClick={() => ouvrir({ ...c, debut: minutes(c.debut), motif: recherche })}
                     >
-                      <b>{r.debut}</b> {r.nom}
-                      {r.duree >= 15 && <small>{mo?.nom || r.motif}</small>}
+                      {JOURS[(new Date(`${c.date}T12:00:00Z`).getUTCDay() + 6) % 7].slice(0, 3)}{" "}
+                      {formaterDate(c.date).slice(0, 5)} · {c.debut} → {c.fin}
                     </button>
-                  );
-                })}
-            </div>
-          )),
-        )}
-      </div>
-
-      <details className="oa-planning-motifs">
-        <summary>Motifs et couleurs</summary>
-        {[1, 2].map((f) => (
-          <div key={f}>
-            <b>{FAUTEUILS[f]}</b>
-            <ul>
-              {motifs
-                .filter((x) => x.fauteuil === f)
-                .map((x) => (
-                  <li key={x.id}>
-                    <i style={{ background: x.couleur }} /> {x.nom} · {x.duree} min
                   </li>
                 ))}
-            </ul>
+              </ul>
+            </>
+          ) : (
+            <>
+              <input
+                type="search"
+                className="oa-recherche-motif"
+                placeholder="Motif (ex. dépose, pose, suivi…)"
+                value={filtre}
+                onChange={(e) => setFiltre(e.target.value)}
+              />
+              <ul className="oa-liste-motifs">
+                {motifsFiltres.map((x) => (
+                  <li key={x.id}>
+                    <button type="button" onClick={() => setMotifRecherche(x.id)}>
+                      <i style={{ background: x.couleur }} /> {x.nom}
+                      <small>
+                        {x.duree} min · F{x.fauteuil}
+                      </small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </aside>
+
+        <div
+          className="oa-planning-grille"
+          style={{ gridTemplateColumns: `52px repeat(${joursAffiches.length * 2}, minmax(120px, 1fr))` }}
+        >
+          <div className="oa-planning-coin" />
+          {joursAffiches.map((j) => (
+            <div
+              key={j.date}
+              className={`oa-planning-jour${j.date === auj ? " aujourdhui" : ""}`}
+              style={{ gridColumn: "span 2" }}
+            >
+              {j.nom} {formaterDate(j.date).slice(0, 5)}
+            </div>
+          ))}
+          <div className="oa-planning-coin" />
+          {joursAffiches.map((j) =>
+            [1, 2].map((f) => (
+              <div key={`${j.date}-${f}`} className="oa-planning-fauteuil">
+                {f === 1 ? "Fauteuil 1 · ortho" : "Fauteuil 2 · blanc"}
+              </div>
+            )),
+          )}
+          <div className="oa-planning-heures" style={{ height: hauteur }}>
+            {heures.map((t) => (
+              <span key={t} style={{ top: (t - OUVERTURE) * PX }}>
+                {t % 60 === 0 ? heure(t) : ""}
+              </span>
+            ))}
           </div>
-        ))}
-      </details>
+          {joursAffiches.map((j) =>
+            [1, 2].map((f) => {
+              const fantome = survol && survol.date === j.date && survol.fauteuil === f ? survol : null;
+              return (
+                <div
+                  key={`${j.date}-${f}-col`}
+                  className={`oa-planning-colonne f${f}`}
+                  style={{ height: hauteur }}
+                  onMouseMove={(e) => {
+                    if (e.target.closest(".oa-rdv, .oa-creneau-libre")) return setSurvol(null);
+                    const c = creneauSous(e, j.date, f, j.i);
+                    if (!survol || survol.date !== c.date || survol.fauteuil !== c.fauteuil || survol.debut !== c.debut)
+                      setSurvol(c);
+                  }}
+                  onMouseLeave={() => setSurvol(null)}
+                  onClick={(e) => {
+                    if (e.target.closest(".oa-rdv, .oa-creneau-libre")) return;
+                    ouvrir(creneauSous(e, j.date, f, j.i));
+                  }}
+                  role="presentation"
+                >
+                  {plages
+                    .filter((p) => p.fauteuil === f && p.jour === j.i + 1)
+                    .map((p) => (
+                      <div
+                        key={`${p.debut}-${p.genre}`}
+                        className={`oa-planning-plage ${p.genre}`}
+                        style={{
+                          top: (minutes(p.debut) - OUVERTURE) * PX,
+                          height: (minutes(p.fin) - minutes(p.debut)) * PX,
+                          background: GENRES_PLAGES[p.genre]?.couleur,
+                          borderColor: GENRES_PLAGES[p.genre]?.bord,
+                        }}
+                      />
+                    ))}
+                  {creneauxDuJour(j.date, f).map((c, k) => (
+                    <button
+                      key={c.debut}
+                      type="button"
+                      className={`oa-creneau-libre${k % 2 ? " clair" : ""}`}
+                      style={{
+                        top: (minutes(c.debut) - OUVERTURE) * PX,
+                        height: recherche.duree * PX - 2,
+                      }}
+                      onClick={() => ouvrir({ ...c, debut: minutes(c.debut), motif: recherche })}
+                    >
+                      {c.debut} → {c.fin} <span aria-hidden="true">+</span>
+                    </button>
+                  ))}
+                  {fantome && (
+                    <div
+                      className={`oa-creneau-survol${fantome.libre ? "" : " occupe"}`}
+                      style={{
+                        top: (fantome.debut - OUVERTURE) * PX,
+                        height: (fantome.fin - fantome.debut) * PX - 2,
+                        borderColor: fantome.motif?.couleur,
+                      }}
+                    >
+                      {heure(fantome.debut)} → {heure(fantome.fin)}
+                      {fantome.motif && <small>{fantome.motif.nom}</small>}
+                    </div>
+                  )}
+                  {j.date === auj && minuteMaintenant > OUVERTURE && minuteMaintenant < FERMETURE && (
+                    <div className="oa-planning-maintenant" style={{ top: (minuteMaintenant - OUVERTURE) * PX }} />
+                  )}
+                  {rdvSemaine
+                    .filter((r) => r.date === j.date && r.fauteuil === f)
+                    .sort((a, b) => a.debut.localeCompare(b.debut))
+                    .map((r) => {
+                      const mo = motifDe(r.motif);
+                      const couleur = mo?.couleur || "#cbd5e1";
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          className={`oa-rdv ${r.statut}`}
+                          title={`${r.debut} · ${r.nom} · ${mo?.nom || r.motif}${r.note ? ` · ${r.note}` : ""}`}
+                          style={{
+                            top: (minutes(r.debut) - OUVERTURE) * PX,
+                            height: Math.max(14, r.duree * PX - 2),
+                            background: couleur,
+                            color: texteSur(couleur),
+                          }}
+                          onClick={() => setEdition(r)}
+                        >
+                          <b>{r.debut}</b> {r.nom}
+                          {r.duree >= 15 && <small>{mo?.nom || r.motif}</small>}
+                        </button>
+                      );
+                    })}
+                </div>
+              );
+            }),
+          )}
+        </div>
+      </div>
 
       {edition && (
         <FenetreRdv

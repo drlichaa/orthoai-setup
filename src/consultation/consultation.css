@@ -701,7 +701,7 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-planning-fauteuil { padding: 4px; text-align: center; font-size: 0.75rem; color: var(--cr-doux); border-left: 1px solid var(--cr-bord); border-bottom: 1px solid var(--cr-bord); }
 .oa-planning-heures { position: relative; }
 .oa-planning-heures span { position: absolute; right: 6px; transform: translateY(-50%); font-size: 0.72rem; color: var(--cr-doux); }
-.oa-planning-colonne { position: relative; cursor: copy; border-left: 1px solid var(--cr-bord); background: repeating-linear-gradient(135deg, #f8f6ee 0 6px, #f2efe2 6px 12px); background-image: linear-gradient(to bottom, rgba(148, 163, 184, 0.25) 1px, transparent 1px), repeating-linear-gradient(135deg, #f8f6ee 0 6px, #f2efe2 6px 12px); background-size: 100% 45px, auto; }
+.oa-planning-colonne { position: relative; cursor: pointer; border-left: 1px solid var(--cr-bord); background: repeating-linear-gradient(135deg, #f8f6ee 0 6px, #f2efe2 6px 12px); background-image: linear-gradient(to bottom, rgba(148, 163, 184, 0.25) 1px, transparent 1px), repeating-linear-gradient(135deg, #f8f6ee 0 6px, #f2efe2 6px 12px); background-size: 100% 45px, auto; }
 .oa-planning-colonne.f1 { border-left: 2px solid #94a3b8; }
 .oa-planning-plage { position: absolute; left: 2px; right: 2px; border: 1px solid; border-radius: 6px; opacity: 0.85; }
 .oa-planning-maintenant { position: absolute; left: 0; right: 0; border-top: 2px solid #e11d48; z-index: 3; pointer-events: none; }
@@ -720,3 +720,23 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 @media (max-width: 700px) { .oa-planning-motifs ul { columns: 1; } }
 .oa-motifs-table input[type="color"] { width: 40px; height: 28px; padding: 0; border: none; background: none; }
 .oa-motifs-table td input:not([type]) { width: 100%; }
+.oa-planning-corps { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 14px; align-items: start; }
+.oa-planning-cote { position: sticky; top: 8px; background: var(--cr-carte); border: 1px solid var(--cr-bord); border-radius: 12px; padding: 12px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.oa-planning-cote h2 { font-size: 1rem; margin: 0 0 8px; }
+.oa-recherche-motif { width: 100%; margin-bottom: 8px; }
+.oa-liste-motifs, .oa-propositions { list-style: none; padding: 0; margin: 0; }
+.oa-liste-motifs button { display: block; width: 100%; text-align: left; padding: 6px 4px; border: 0; border-radius: 6px; background: none; font: inherit; font-weight: 400; font-size: 0.85rem; cursor: pointer; color: var(--cr-texte); }
+.oa-liste-motifs button:hover { background: #eef2ff; }
+.oa-liste-motifs i, .oa-motif-choisi i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.oa-liste-motifs small, .oa-motif-choisi small { display: block; color: var(--cr-doux); font-size: 0.75rem; margin-left: 18px; }
+.oa-motif-choisi { display: flex; justify-content: space-between; gap: 6px; padding: 8px; border: 1px solid var(--cr-bord); border-left: 8px solid; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; }
+.oa-motif-choisi small { margin-left: 0; }
+.oa-prochaine-dispo { width: 100%; margin: 0 0 8px; }
+.oa-propositions li { font-size: 0.85rem; padding: 2px 0; }
+.oa-creneau-libre { position: absolute; left: 3px; right: 3px; z-index: 1; border: 0; border-radius: 5px; background: #3f7a22; color: #fff; font: inherit; font-size: 0.72rem; text-align: left; padding: 2px 6px; cursor: pointer; display: flex; justify-content: space-between; }
+.oa-creneau-libre.clair { background: #5fd17a; color: #0b3b16; }
+.oa-creneau-libre:hover { outline: 2px solid #1d4ed8; }
+.oa-creneau-survol { position: absolute; left: 3px; right: 3px; z-index: 1; pointer-events: none; border: 2px solid; border-radius: 6px; background: rgba(34, 197, 94, 0.25); font-size: 0.72rem; font-weight: 600; padding: 1px 5px; color: #14532d; }
+.oa-creneau-survol small { display: block; font-weight: 400; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.oa-creneau-survol.occupe { background: rgba(148, 163, 184, 0.3); color: #475569; border-style: dashed; }
+@media (max-width: 900px) { .oa-planning-corps { grid-template-columns: 1fr; } .oa-planning-cote { position: static; max-height: none; } }
