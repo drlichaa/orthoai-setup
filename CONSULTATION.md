@@ -286,3 +286,13 @@ Paramètres → catalogue des appareils : pour chaque appareil, aperçu de la fi
 ## Onglets du dossier patient
 
 Dans l'ordre : Patient (informations administratives, questionnaire médical), Fiche clinique, Parcours de traitement (frise et étapes), Photos & radios, Devis (devis, semestres, DEP), Suivi du traitement. Le dossier s'ouvre sur la fiche clinique.
+
+## Planning (Le Chesnay)
+
+Menu « Planning » : semaine du cabinet du Chesnay sur deux fauteuils — **fauteuil 1 · cabinet ortho** (praticienne : poses, suivis, contention, urgences, dépose) et **fauteuil 2 · cabinet blanc** (assistante : premières consultations, bilans, contrôle qualité, radios). Planning interne, saisi à la main (pas de synchronisation possible avec Doctolib).
+
+- Planning type en fond : fauteuil 1 — plages roses (RDV longs) et bleues (RDV courts) : lundi 10h30-12h, 12h-13h, 14h-16h, 16h-19h ; mercredi 9h30-13h, 14h-19h ; vendredi 9h30-15h. Fauteuil 2 — créneaux de 30 min de 1ère consultation le lundi, le mercredi et le vendredi.
+- Motifs, couleurs et durées repris de Doctolib (modifiables : Paramètres → Planning).
+- Clic sur un créneau : nouveau RDV (motif proposé selon la plage), patient choisi parmi les dossiers ou nouveau patient (nom, téléphone). Chevauchement et hors plage signalés. Statut : prévu, venu, absent, annulé.
+- Un RDV de pose, de dépose ou « FACTURATION + suivi » relié à un dossier renseigne la date prévue dans son parcours (messages 3 jours avant).
+- Les rendez-vous sont rangés dans le coffre chiffré.

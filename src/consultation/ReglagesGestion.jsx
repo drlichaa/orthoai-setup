@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { appelApi } from "./apiHistorique.js";
 import { lieux } from "./lieux.js";
 import { CHAMPS_MODELES } from "./messagerie.js";
-import { AUTOMATISATIONS, BAREME_PAR_DEFAUT, automatisations, bareme } from "./gestion.js";
+import { MOTIFS_PAR_DEFAUT, reglagesPlanning } from "./planning.js";
+import { AUTOMATISATIONS, BAREME_PAR_DEFAUT, automatisations, bareme, identifiantUnique } from "./gestion.js";
 
 const PRIX_SEMESTRE = [
   ["interception", "Semestre d'interception"],
@@ -370,6 +371,98 @@ export function ReglagesMessagerie({ cabinet }) {
           </div>
         </>
       )}
+    </section>
+  );
+}
+
+// Paramètres → Planning : motifs de rendez-vous (couleurs et durées de Doctolib par défaut).
+export function ReglagesPlanning({ cabinet, onCabinetChange }) {
+  const { motifs, plages } = reglagesPlanning(cabinet);
+  const maj = (liste) =>
+    onCabinetChange({ ...cabinet, planning: { ...(cabinet.planning || {}), motifs: liste, plages } });
+  const majMotif = (i, modif) => maj(motifs.map((m, j) => (j === i ? { ...m, ...modif } : m)));
+  return (
+    <section className="cr-carte">
+      <div className="cr-titre-section">
+        <h2>Planning : motifs de rendez-vous</h2>
+        <div className="cr-actions">
+          <button
+            type="button"
+            className="secondaire"
+            onClick={() =>
+              maj([
+                ...motifs,
+                {
+                  id: `motif-${identifiantUnique()}`,
+                  nom: "Nouveau motif",
+                  duree: 15,
+                  couleur: "#94a3b8",
+                  fauteuil: 1,
+                  lien: "",
+                },
+              ])
+            }
+          >
+            + Motif
+          </button>
+          <button
+            type="button"
+            className="secondaire"
+            onClick={() => window.confirm("Revenir aux motifs et couleurs de Doctolib ?") && maj(MOTIFS_PAR_DEFAUT)}
+          >
+            Réinitialiser
+          </button>
+        </div>
+      </div>
+      <table className="oa-table oa-motifs-table">
+        <thead>
+          <tr>
+            <th>Couleur</th>
+            <th>Motif</th>
+            <th>Durée</th>
+            <th>Fauteuil</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {motifs.map((m, i) => (
+            <tr key={m.id}>
+              <td>
+                <input type="color" value={m.couleur} onChange={(e) => majMotif(i, { couleur: e.target.value })} />
+              </td>
+              <td>
+                <input value={m.nom} onChange={(e) => majMotif(i, { nom: e.target.value })} />
+              </td>
+              <td>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  className="oa-court"
+                  value={m.duree}
+                  onChange={(e) => majMotif(i, { duree: Math.max(5, Number(e.target.value) || 5) })}
+                />{" "}
+                min
+              </td>
+              <td>
+                <select value={m.fauteuil} onChange={(e) => majMotif(i, { fauteuil: Number(e.target.value) })}>
+                  <option value={1}>1 · ortho</option>
+                  <option value={2}>2 · blanc</option>
+                </select>
+              </td>
+              <td>
+                <button
+                  type="button"
+                  className="cr-lien"
+                  onClick={() => window.confirm(`Supprimer « ${m.nom} » ?`) && maj(motifs.filter((_, j) => j !== i))}
+                >
+                  ✕
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </section>
   );
 }

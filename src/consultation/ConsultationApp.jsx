@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import Planning from "./Planning.jsx";
 import EnvoiMail from "./EnvoiMail.jsx";
 import { modeleCourrier, nomDocument } from "./messagerie.js";
 import { flushSync } from "react-dom";
@@ -182,6 +183,7 @@ const ADRESSES = {
   patients: "patients",
   historique: "comptes-rendus",
   taches: "taches",
+  planning: "planning",
   relances: "relances",
   labo: "laboratoire",
   catalogue: "parametres",
@@ -582,6 +584,8 @@ export default function ConsultationApp() {
     );
   } else if (vue === "taches") {
     contenu = <Taches cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} />;
+  } else if (vue === "planning") {
+    contenu = <Planning cabinet={cabinet} onOuvrirPatient={ouvrirPatient} />;
   } else if (vue === "relances") {
     contenu = (
       <Relances cabinet={cabinet} lieuActif={lieuActif} onOuvrirPatient={ouvrirPatient} onCabinetChange={setCabinet} />

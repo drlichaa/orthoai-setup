@@ -234,6 +234,8 @@ export function creerHistorique(fichier) {
   let gestion = { taches: [], ignorees: [] };
   // Messagerie (compte Gmail du cabinet, modèles) : rangée dans le coffre chiffré.
   let messagerie = MESSAGERIE_PAR_DEFAUT;
+  // Planning du cabinet (rendez-vous des deux fauteuils) : données patients, dans le coffre.
+  let agenda = { rdv: [] };
   let minuteur = null;
 
   function verrouiller() {
@@ -244,6 +246,7 @@ export function creerHistorique(fichier) {
     reglages = REGLAGES_PAR_DEFAUT;
     gestion = { taches: [], ignorees: [] };
     messagerie = MESSAGERIE_PAR_DEFAUT;
+    agenda = { rdv: [] };
     clearTimeout(minuteur);
   }
 
@@ -271,7 +274,7 @@ export function creerHistorique(fichier) {
     const enveloppe = {
       version: 2,
       sel: sel.toString("base64"),
-      ...chiffrer(cle, { fiches, patients, reglages, gestion, messagerie }),
+      ...chiffrer(cle, { fiches, patients, reglages, gestion, messagerie, agenda }),
     };
     ecrireAtomique(fichier, JSON.stringify(enveloppe));
   }
@@ -288,6 +291,7 @@ export function creerHistorique(fichier) {
       reglages = completerReglages(donnees.reglages);
       gestion = { taches: [], ignorees: [], ...(donnees.gestion || {}) };
       messagerie = donnees.messagerie ? nettoyerMessagerie(donnees.messagerie) : MESSAGERIE_PAR_DEFAUT;
+      agenda = { rdv: Array.isArray(donnees.agenda?.rdv) ? donnees.agenda.rdv : [] };
     }
   }
 
@@ -874,6 +878,55 @@ export function creerHistorique(fichier) {
       };
       sauvegarder();
       return gestion;
+    },
+
+    agenda() {
+      exiger();
+      return { rdv: agenda.rdv };
+    },
+
+    // Rendez-vous (création ou modification). Un RDV de pose, de dépose ou de facturation
+    // relié à un dossier renseigne la date prévue dans son parcours de traitement.
+    enregistrerRdv(brut, lien) {
+      exiger();
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(brut?.date || "") ? brut.date : "";
+      const debut = /^([01]\d|2[0-3]):[0-5]\d$/.test(brut?.debut || "") ? brut.debut : "";
+      if (!date || !debut) throw new ErreurHistorique(400, "Date ou heure du rendez-vous invalide.");
+      const patient = brut.patientId ? trouverPatient(brut.patientId) : null;
+      const rdv = {
+        id: /^[\w-]{6,60}$/.test(brut.id || "") ? brut.id : randomUUID(),
+        date,
+        debut,
+        duree: Math.min(480, Math.max(5, Math.round(Number(brut.duree) || 15))),
+        fauteuil: Number(brut.fauteuil) === 2 ? 2 : 1,
+        lieu: texte(brut.lieu, 30) || "chesnay",
+        motif: texte(brut.motif, 60),
+        patientId: patient?.id || "",
+        nom: patient ? [patient.nom, patient.prenom].filter(Boolean).join(" ") : texte(brut.nom, 200),
+        telephone: patient ? patient.portable || patient.telephone || "" : texte(brut.telephone, 50),
+        note: texte(brut.note, 1000),
+        statut: ["prevu", "venu", "absent", "annule"].includes(brut.statut) ? brut.statut : "prevu",
+        modifieLe: new Date().toISOString(),
+      };
+      agenda = { rdv: [...agenda.rdv.filter((r) => r.id !== rdv.id), rdv] };
+      if (patient && ["pose", "depose", "facturation"].includes(lien) && rdv.statut === "prevu") {
+        const g = patient.gestion || {};
+        const parcours = g.parcours || {};
+        patient.gestion = nettoyerJson({
+          ...g,
+          parcours: { ...parcours, rdv: { ...(parcours.rdv || {}), [lien]: date } },
+        });
+        patient.modifieLe = rdv.modifieLe;
+      }
+      sauvegarder();
+      return { rdv, gestion: patient?.gestion };
+    },
+
+    supprimerRdv(id) {
+      exiger();
+      agenda = { rdv: agenda.rdv.filter((r) => r.id !== id) };
+      sauvegarder();
+      return { ok: true };
     },
 
     messagerie() {

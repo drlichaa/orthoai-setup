@@ -171,6 +171,9 @@ async function routePatients(historique, req, res, url, { genererPdf } = {}) {
   if (methode === "POST" && url === "/api/patients/reglages")
     return { reglages: historique.enregistrerReglages(corps.reglages) };
   if (methode === "GET" && url === "/api/patients/messagerie") return { messagerie: historique.messagerie() };
+  if (methode === "GET" && url === "/api/patients/agenda") return historique.agenda();
+  if (methode === "POST" && url === "/api/patients/agenda/rdv") return historique.enregistrerRdv(corps.rdv, corps.lien);
+  if (methode === "POST" && url === "/api/patients/agenda/supprimer") return historique.supprimerRdv(corps.id);
   if (methode === "POST" && url === "/api/patients/messagerie")
     return { messagerie: await historique.enregistrerMessagerie(corps.messagerie) };
   if (methode === "POST" && url === "/api/patients/media/supprimer")
