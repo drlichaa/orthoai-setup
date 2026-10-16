@@ -20,11 +20,7 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
         <h2>Questionnaire médical</h2>
         <div className="cr-actions">
           {q?.pdf && (
-            <button
-              type="button"
-              className="secondaire"
-              onClick={() => setApercu(true)}
-            >
+            <button type="button" className="secondaire" onClick={() => setApercu(true)}>
               Ouvrir le PDF
             </button>
           )}
@@ -56,9 +52,13 @@ export default function QuestionnaireMedical({ questionnaire: q, onImporter }) {
               "Poids / taille",
               [q.poids && `${q.poids} kg`, q.taille && `${q.taille} cm`].filter(Boolean).join(" · "),
             )}
+            {ligne("Grossesse", q.grossesse, q.grossesse?.startsWith("Oui"))}
             {ligne("Problème de santé", q.sante)}
             {ligne("Médicaments", q.medicaments)}
             {ligne("Allergie", q.allergie)}
+            {ligne("Antécédent orthodontique", q.antecedentOrtho)}
+            {ligne("Antécédents parodontaux", q.parodontal)}
+            {ligne("Tabac", q.tabac)}
             {ligne("Déglutition (mal à avaler)", q.deglutition)}
             {ligne("Élocution / dyslexie", q.elocution)}
             {ligne("Succion", q.succion)}

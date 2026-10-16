@@ -272,6 +272,7 @@ Patients → « Questionnaire WeClever (PDF) » (crée ou complète un dossier),
 - **Écran de vérification obligatoire** : PDF à gauche, champs proposés à droite, réponses douteuses en orange. Rien n'est enregistré avant « Valider ». Un champ déjà rempli n'est remplacé que si « Remplacer » est coché.
 - Dossier existant (mêmes nom, prénom, date de naissance) : proposé pour être complété ; sinon création (cabinet à choisir).
 - Correspondance : identité et contacts, « Adressé par » (prise de RDV), n° de sécurité sociale, adresse, mutuelle et profession (onglet Devis & semestres → assuré, utilisés pour la DEP), questionnaire (motifs, antécédents, ORL, accords, engagements, signature, questions propres à la version adulte), alerte du dossier (allergie, médicaments, problème de santé, sauf « RAS »/« non », ajoutés à l'alerte existante).
+- Version adulte (« Ortho adulte ») : nom de naissance, profession, grossesse (avec le nombre de mois, ajoutée à l'alerte), motif en texte libre, antécédent orthodontique, antécédents parodontaux, tabac ; pas de questions propres à l'enfant (déglutition, élocution, succion, ORL, radiographies, départ seul).
 - Refus d'enregistrement de la consultation : avertissement à côté du bouton « Démarrer » de la consultation de ce patient.
 - Le PDF est rangé chiffré dans le dossier (« Ouvrir le PDF » dans l'onglet Patient).
 - Tests : faux questionnaires générés (patients inventés), jamais de vrais.

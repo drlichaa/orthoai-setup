@@ -23,6 +23,7 @@ const ADMINISTRATIF = [
   ["mutuelle", "Mutuelle"],
   ["professionParents", "Profession des parents"],
   ["profession", "Profession"],
+  ["nomNaissance", "Nom de naissance"],
 ];
 const ACCORDS = [
   ["radiographies", "Radiographies"],
@@ -86,6 +87,7 @@ export default function ImportQuestionnaire({ cabinet, lieuActif = "", patientId
   const majQ = (modif) => majProp("questionnaire", modif);
   const orange = (cle) => (prop?.aVerifier?.[cle] ? "oa-a-verifier" : undefined);
   const completer = mode === "completer" && cible;
+  const enfant = prop?.type !== "adulte";
 
   // Valeur finale d'un champ : remplie si vide, remplacée seulement si demandé.
   const abimee = (v) => /^\s*\*/.test(String(v || ""));
@@ -299,15 +301,20 @@ export default function ImportQuestionnaire({ cabinet, lieuActif = "", patientId
                   {texte("motifs", "Motif(s) de la visite", true)}
                   {texte("priseRdv", "Prise de RDV", true)}
                   {texte("derniereVisiteDentiste", "Dernière consultation chez le dentiste")}
-                  {texte("poids", "Poids (kg)")}
-                  {texte("taille", "Taille (cm)")}
+                  {enfant && texte("poids", "Poids (kg)")}
+                  {enfant && texte("taille", "Taille (cm)")}
+                  {prop.questionnaire.grossesse !== undefined && texte("grossesse", "Grossesse")}
                   {texte("sante", "Problème de santé général")}
                   {texte("medicaments", "Médicaments quotidiens")}
                   {texte("allergie", "Allergie reconnue")}
-                  {choix("deglutition", "Déglutition : mal à avaler sa salive", ["Oui", "Non"])}
-                  {choix("elocution", "Élocution / dyslexie", ["Oui", "Non"])}
-                  {choix("succion", "Succion", ["Pouce", "Doigt", "Tétine", "Aucun"])}
-                  {texte("orl", "ORL", true)}
+                  {prop.questionnaire.antecedentOrtho !== undefined &&
+                    texte("antecedentOrtho", "Antécédent orthodontique")}
+                  {prop.questionnaire.parodontal !== undefined && texte("parodontal", "Antécédents parodontaux", true)}
+                  {prop.questionnaire.tabac !== undefined && texte("tabac", "Tabac")}
+                  {enfant && choix("deglutition", "Déglutition : mal à avaler sa salive", ["Oui", "Non"])}
+                  {enfant && choix("elocution", "Élocution / dyslexie", ["Oui", "Non"])}
+                  {enfant && choix("succion", "Succion", ["Pouce", "Doigt", "Tétine", "Aucun"])}
+                  {enfant && texte("orl", "ORL", true)}
                   {(prop.questionnaire.autres || []).map((a, i) => (
                     <tr key={a.question} className={a.aVerifier ? "oa-a-verifier" : undefined}>
                       <th>{a.question}</th>
@@ -331,7 +338,9 @@ export default function ImportQuestionnaire({ cabinet, lieuActif = "", patientId
               <h3>Accords et engagements</h3>
               <table className="oa-table oa-q-table">
                 <tbody>
-                  {ACCORDS.filter(([cle]) => prop.questionnaire.accords[cle] !== undefined).map(([cle, libelle]) => (
+                  {ACCORDS.filter(
+                    ([cle]) => prop.questionnaire.accords[cle] !== undefined && (enfant || cle === "enregistrement"),
+                  ).map(([cle, libelle]) => (
                     <tr key={cle} className={orange(cle)}>
                       <th>
                         {libelle}

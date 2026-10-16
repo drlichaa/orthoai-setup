@@ -45,6 +45,7 @@ const nettoyer = (t) => {
 // Champs texte : libellé (texte normalisé, début de ligne) → clé.
 const CHAMPS = [
   [/^nom de votre mutuelle/, "mutuelle"],
+  [/^nom de naissance/, "nomNaissance"],
   [/^nom\b/, "nom"],
   [/^pr[eé]nom\b/, "prenom"],
   [/^date de naissance/, "naissance"],
@@ -62,6 +63,10 @@ const CHAMPS = [
   [/^probleme de sante general/, "sante"],
   [/^medicaments quotidien/, "medicaments"],
   [/^allergie reconnue/, "allergie"],
+  // Questionnaire adulte.
+  [/^quel est le motif de votre consultation/, "motifTexte"],
+  [/^antecedent orthodontique/, "antecedentOrtho"],
+  [/^etes-vous fumeur/, "tabac"],
   [/^date de signature/, "signature"],
 ];
 // Libellé complet (pour séparer la valeur) : fin de la partie « question » du libellé.
@@ -127,7 +132,8 @@ async function lirePage(page) {
       if (droite.length) colonnes[1].push(droite);
     }
   }
-  const versLigne = (ms, i) => ({
+  const versLigne = (colonne) => (ms, i) => ({
+    colonne,
     morceaux: ms,
     texte: reparer(ms.map((m) => m.s).join(" ")),
     x: ms[0].x,
@@ -138,7 +144,7 @@ async function lirePage(page) {
   });
   return {
     image: toile.toDataURL("image/png"),
-    lignes: [...colonnes[0].map(versLigne), ...colonnes[1].map(versLigne)],
+    lignes: [...colonnes[0].map(versLigne(0)), ...colonnes[1].map(versLigne(1))],
     mesurer: (m) => noirceur(img, m.x, m.yb, m.h),
   };
 }
@@ -177,6 +183,8 @@ export async function lireQuestionnaire(octets) {
   const champs = {};
   const questions = [];
   let tampon = [];
+  // Question en bas de la colonne de gauche : ses cases peuvent être en haut de la page suivante.
+  let finGauche = [];
   let bloc = null;
   const terminer = (multiple) => {
     if (!bloc) return;
@@ -185,12 +193,13 @@ export async function lireQuestionnaire(octets) {
     questions.push(bloc);
     bloc = null;
   };
-  for (const page of pages) {
+  for (const [numeroPage, page] of pages.entries()) {
     for (let i = 0; i < page.lignes.length; i++) {
       const l = page.lignes[i];
       if (l.debutColonne) {
+        if (l.colonne === 1) finGauche = tampon;
         terminer(true);
-        tampon = [];
+        tampon = l.colonne === 0 && numeroPage > 0 ? finGauche : [];
       }
       const n = normaliser(l.texte.replace(PUCE, ""));
       if (/^cochez une seule reponse/.test(n) || /^cochez une ou plusieurs reponses/.test(n)) {
@@ -204,12 +213,25 @@ export async function lireQuestionnaire(octets) {
         tampon = [];
         continue;
       }
-      // Sexe : choix sur la même ligne que le libellé.
-      if (/^sexe\b/.test(n)) {
-        const options = l.morceaux.slice(1).map((m) => ({ texte: reparer(m.s), score: page.mesurer(m) }));
-        const q = { question: "Sexe", options, multiple: false };
+      // Sexe, grossesse : choix sur la même ligne que le libellé (« Oui : ☐ Non …… mois »).
+      const enLigne = /^(sexe|grossesse)\b/.exec(n);
+      if (enLigne) {
+        const avecScore = l.morceaux.slice(1).map((m) => ({ m, score: page.mesurer(m) }));
+        const options = avecScore
+          .filter((x) => x.score > SEUIL_MARQUE)
+          .map((x) => ({ texte: reparer(x.m.s).replace(/\s*:\s*$/, ""), score: x.score }));
+        const derniere = avecScore.findLastIndex((x) => x.score > SEUIL_MARQUE);
+        const precision = nettoyer(
+          avecScore
+            .slice(derniere + 1)
+            .map((x) => x.m.s)
+            .filter((s) => !/^mois$/i.test(s))
+            .join(" "),
+        );
+        const q = { question: enLigne[1] === "sexe" ? "Sexe" : "Grossesse", options, multiple: false, precision };
         decider(q);
         questions.push(q);
+        tampon = [];
         continue;
       }
       const score = page.mesurer(l.morceaux[0]);
@@ -241,8 +263,20 @@ export async function lireQuestionnaire(octets) {
           const suivante = page.lignes[i + 1];
           champs.signature = nettoyer(suivante && !/signature/i.test(suivante.texte) ? suivante.texte : "");
         } else {
-          const morceauxValeur = l.morceaux.slice(1);
-          let valeur = morceauxValeur.map((m) => m.s).join(" ");
+          // Libellé : premiers morceaux jusqu'à reconnaître le champ ; la valeur est le reste.
+          let finLibelle = 0;
+          let cumul = "";
+          for (let k = 0; k < l.morceaux.length; k++) {
+            cumul = `${cumul} ${l.morceaux[k].s}`;
+            if (champ[0].test(normaliser(cumul.trim().replace(PUCE, "")))) {
+              finLibelle = k;
+              break;
+            }
+          }
+          let valeur = l.morceaux
+            .slice(finLibelle + 1)
+            .map((m) => m.s)
+            .join(" ");
           if (l.morceaux.length === 1) valeur = (FIN_LIBELLE.exec(l.texte)?.[3] || "").trim();
           if (cle === "poids" || cle === "taille") valeur = valeur.replace(/\s*(kg|cm)\s*$/i, "");
           if (!champs[cle]) champs[cle] = nettoyer(valeur);
@@ -254,11 +288,14 @@ export async function lireQuestionnaire(octets) {
       if (PUCE.test(l.texte)) tampon = [l.texte.replace(PUCE, "")];
       else tampon = [...tampon, l.texte].slice(-2);
     }
+    // Page sans colonne de droite : la question en attente continue sur la page suivante.
+    if (!page.lignes.some((x) => x.colonne === 1)) finGauche = tampon;
   }
   terminer(true);
-  const type = pages.some((p) => p.lignes.some((l) => /questionnaire medical adulte/.test(normaliser(l.texte))))
-    ? "adulte"
-    : "enfant";
+  // Titre de la page 1 : « QUESTIONNAIRE MEDICAL ENFANT ORTHODONTIE » ou « Ortho adulte ».
+  const titres = pages[0]?.lignes.slice(0, 8).map((l) => normaliser(l.texte)) || [];
+  const type =
+    titres.some((t) => /\badulte\b/.test(t)) && !titres.some((t) => /\benfant\b/.test(t)) ? "adulte" : "enfant";
   return { type, champs, questions, pages: pages.map((p) => p.image) };
 }
 
@@ -307,6 +344,8 @@ export function propositions(lu) {
   const qEnregistrement = chercher(questions, /enregistrer la consultation/);
   const qDepart = chercher(questions, /partir seul/);
   const compact = (t) => normaliser(t).replace(/[^a-z]/g, "");
+  const qParo = chercher(questions, /parodont/);
+  const qGrossesse = questions.find((q) => q.question === "Grossesse");
   const qEngagements = questions.find((q) => q.options.some((o) => compact(o.texte).startsWith("jecertifie")));
   const connues = [
     qRdv,
@@ -320,7 +359,14 @@ export function propositions(lu) {
     qEnregistrement,
     qDepart,
     qEngagements,
+    qParo,
+    qGrossesse,
   ];
+  const grossesse = qGrossesse
+    ? ouiNon(qGrossesse) === "Oui"
+      ? `Oui${qGrossesse.precision ? ` (${qGrossesse.precision} mois)` : ""}`
+      : ouiNon(qGrossesse)
+    : undefined;
   const engagement = (debut) => Boolean(qEngagements?.options.find((o) => compact(o.texte).startsWith(debut))?.coche);
   const aVerifier = (q) => Boolean(q?.aVerifier);
 
@@ -329,6 +375,9 @@ export function propositions(lu) {
   const medicaments = c.medicaments || "";
   const allergie = c.allergie || "";
   const alerte = [
+    ...(grossesse?.startsWith("Oui")
+      ? [[qGrossesse.precision ? `${qGrossesse.precision} mois` : "oui", "Grossesse"]]
+      : []),
     [allergie, "Allergie"],
     [sante, "Problème de santé"],
     [medicaments, "Médicaments"],
@@ -355,12 +404,13 @@ export function propositions(lu) {
         .join("\n"),
       mutuelle: c.mutuelle || "",
       ...(lu.type === "adulte" ? { profession: c.profession || "" } : { professionParents: c.professionParents || "" }),
+      ...(c.nomNaissance !== undefined ? { nomNaissance: c.nomNaissance } : {}),
     },
     questionnaire: {
       type: lu.type,
       poids: c.poids || "",
       taille: c.taille || "",
-      motifs: cochees(qMotif),
+      motifs: qMotif ? cochees(qMotif) : c.motifTexte ? [c.motifTexte] : [],
       priseRdv,
       derniereVisiteDentiste: unique(qDerniere),
       sante,
@@ -370,6 +420,11 @@ export function propositions(lu) {
       elocution: ouiNon(qElocution),
       succion: unique(qSuccion),
       orl: cochees(qOrl).map((t) => t.replace(/\s*\?$/, "")),
+      // Questionnaire adulte.
+      ...(grossesse !== undefined ? { grossesse } : {}),
+      ...(c.antecedentOrtho !== undefined ? { antecedentOrtho: c.antecedentOrtho } : {}),
+      ...(qParo ? { parodontal: cochees(qParo) } : {}),
+      ...(c.tabac !== undefined ? { tabac: c.tabac } : {}),
       accords: {
         radiographies: accord(qRadios),
         radiographiesHonoraires: (qRadios?.question.match(/\(honoraire\s*:?\s*([^)]*)\)/i)?.[1] || "").trim(),
@@ -401,6 +456,8 @@ export function propositions(lu) {
       enregistrement: aVerifier(qEnregistrement),
       departSeul: aVerifier(qDepart),
       engagements: aVerifier(qEngagements),
+      grossesse: aVerifier(qGrossesse),
+      parodontal: aVerifier(qParo),
     },
   };
 }
