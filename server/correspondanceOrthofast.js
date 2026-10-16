@@ -25,13 +25,14 @@ const CORRESPONDANCES = [
   // Orthèse d'avancée mandibulaire (apnées du sommeil).
   ["oam", "En traitement", "OAM"],
   ["tt gouttieres", "En traitement", "Aligneurs"],
-  ["tt metal enfant", "En traitement", "Multi-attaches"],
-  ["tt metal adulte", "En traitement", "Multi-attaches"],
-  ["tt ceram enfant", "En traitement", "Multi-attaches"],
-  ["tt ceram adulte", "En traitement", "Multi-attaches"],
-  ["cmu metal enfant", "En traitement", "Multi-attaches"],
+  ["tt metal enfant", "En traitement", "Multi-attaches métallique"],
+  ["tt metal adulte", "En traitement", "Multi-attaches métallique"],
+  ["tt ceram enfant", "En traitement", "Multi-attaches céramique"],
+  ["tt ceram adulte", "En traitement", "Multi-attaches céramique"],
+  ["cmu metal enfant", "En traitement", "Multi-attaches métallique"],
   ["pul 2", "En traitement", "Interception"],
   ["pul2", "En traitement", "Interception"],
+  // Carrière : métal ou céramique non précisé dans OrthoFast.
   ["carriere", "En traitement", "Multi-attaches"],
 ];
 

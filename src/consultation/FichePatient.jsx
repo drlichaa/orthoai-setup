@@ -422,6 +422,9 @@ export default function FichePatient({
   }
 
   const { reglages, comptesRendus } = dossier;
+  const typesProposes = [
+    ...new Set([...(reglages.types || []), ...TYPES_APPAREILS(appareils), patient.type].filter(Boolean)),
+  ];
   const champ = (cle, libelle, type = "text") => (
     <label>
       {libelle}
@@ -513,7 +516,7 @@ export default function FichePatient({
                   onChange={(e) => maj({ type: e.target.value }, { immediat: true })}
                 >
                   <option value="">Choisir l'appareil…</option>
-                  {[...new Set([...TYPES_APPAREILS(appareils), patient.type].filter(Boolean))].map((t) => (
+                  {typesProposes.map((t) => (
                     <option key={t}>{t}</option>
                   ))}
                 </select>

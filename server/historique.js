@@ -21,8 +21,17 @@ const DELAI_VERROUILLAGE_MS = 30 * 60 * 1000;
 export const LONGUEUR_MIN_MOT_DE_PASSE = 8;
 
 export const REGLAGES_PAR_DEFAUT = {
-  version: 3,
-  types: ["Interception", "Multi-attaches", "Aligneurs", "Disjoncteur", "Contention", "OAM"],
+  version: 4,
+  types: [
+    "Interception",
+    "Multi-attaches métallique",
+    "Multi-attaches céramique",
+    "Multi-attaches",
+    "Aligneurs",
+    "Disjoncteur",
+    "Contention",
+    "OAM",
+  ],
   statuts: [
     { nom: "Première consultation", couleur: "blue" },
     { nom: "Jamais vu", couleur: "grey" },
