@@ -3,6 +3,7 @@ import { appelApi, appelHistorique } from "./apiHistorique.js";
 import FichePatient from "./FichePatient.jsx";
 import FriseSemestres from "./FriseSemestres.jsx";
 import ImportOrthofast from "./ImportOrthofast.jsx";
+import ImportQuestionnaire from "./ImportQuestionnaire.jsx";
 import { Verrou } from "./Historique.jsx";
 import { dansLieu, lieux, nomLieu } from "./lieux.js";
 import { age, classeStatut, formaterDate, formaterNom, formaterPrenom } from "./format.js";
@@ -249,6 +250,9 @@ export default function Patients({
             <button type="button" className="secondaire" onClick={() => setMode("import")}>
               Importer l'export OrthoFast
             </button>
+            <button type="button" className="secondaire" onClick={() => setMode("questionnaire")}>
+              Questionnaire WeClever (PDF)
+            </button>
             <button type="button" className="principal" onClick={() => setMode("nouveau")}>
               + Nouveau patient
             </button>
@@ -325,6 +329,18 @@ export default function Patients({
             onSelection(id);
           }}
           onAnnuler={() => setMode("liste")}
+        />
+      )}
+      {mode === "questionnaire" && (
+        <ImportQuestionnaire
+          cabinet={cabinet}
+          lieuActif={lieuActif}
+          onFermer={() => setMode("liste")}
+          onTermine={(id) => {
+            setMode("liste");
+            charger();
+            onSelection(id);
+          }}
         />
       )}
       {mode === "import" && (

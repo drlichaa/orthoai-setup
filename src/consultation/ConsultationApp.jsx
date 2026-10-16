@@ -15,7 +15,7 @@ import TableauDeBord from "./TableauDeBord.jsx";
 import Taches, { Laboratoire, Relances } from "./Taches.jsx";
 import ResumeACopier from "./ResumeACopier.jsx";
 import { cabinetPour, lieuMemorise, lieux, memoriserLieu } from "./lieux.js";
-import { appelHistorique } from "./apiHistorique.js";
+import { appelApi, appelHistorique } from "./apiHistorique.js";
 import { resumeClinique } from "./resumeClinique.js";
 import { formaterNom, formaterPrenom } from "./format.js";
 
@@ -250,6 +250,22 @@ export default function ConsultationApp() {
     if (id && !patientId && !rapport) setPatient((p) => ({ ...p, lieu: id }));
   };
   const [patientSelectionne, setPatientSelectionne] = useState(null);
+  // Questionnaire WeClever : le patient (ou son représentant) a refusé l'enregistrement.
+  const [accordDossier, setAccordDossier] = useState({ id: null, refus: false });
+  useEffect(() => {
+    if (!patientId) return undefined;
+    let actif = true;
+    appelApi(`/patients/dossier/${patientId}`)
+      .then(
+        ({ patient: p }) =>
+          actif && setAccordDossier({ id: patientId, refus: p?.questionnaire?.accords?.enregistrement === "refuse" }),
+      )
+      .catch(() => {});
+    return () => {
+      actif = false;
+    };
+  }, [patientId]);
+  const refusEnregistrement = Boolean(patientId) && accordDossier.id === patientId && accordDossier.refus;
   // Onglet du dossier à ouvrir (depuis les tâches et alertes).
   const [ongletPatient, setOngletPatient] = useState("clinique");
   const [secondes, setSecondes] = useState(0);
@@ -686,6 +702,11 @@ export default function ConsultationApp() {
                 {micro.enCours ? "■ Arrêter" : transcription ? "● Reprendre" : "● Démarrer"}
               </button>
               <span className="cr-chrono">{formaterDuree(secondes)}</span>
+              {refusEnregistrement && (
+                <span className="cr-alerte oa-refus-micro">
+                  ⚠ Le patient a refusé l'enregistrement de la consultation (questionnaire médical).
+                </span>
+              )}
               {micro.enCours && (
                 <span className="cr-niveau" aria-hidden="true">
                   <span style={{ width: `${Math.round(micro.niveau * 100)}%` }} />

@@ -263,3 +263,15 @@ Bloc « Parcours de traitement » sous la frise, étapes cochables et datées :
 Alertes : patient qui approche de 16 ans sans pose (prise en charge), DEP de plus de 5 mois sans pose. Hors prise en charge, la DEP n'est pas exigée. Patients déjà en traitement (import OrthoFast, semestres existants) : pose considérée comme faite, aucun blocage rétroactif.
 
 Tâches automatiques : facturer le bilan ; message de facturation 3 jours avant la pose et avant chaque semestre (ou le prochain RDV de facturation) ; message de dépose 3 jours avant ; encaisser la contention ; carte Vitale ; contrôles de contention ; « Rappeler le patient » après 12 semaines sans séance (réglable dans Suivi du traitement). Messages types « Facturation » et « Dépose » dans Paramètres → Messagerie.
+
+## Questionnaire médical WeClever (PDF)
+
+Patients → « Questionnaire WeClever (PDF) » (crée ou complète un dossier), ou fiche → onglet Patient → « Importer le questionnaire WeClever (PDF) ».
+
+- **100 % local** : le PDF est lu dans l'application avec pdf.js (texte et positions) ; les cases cochées sont mesurées sur le rendu de la page (part de pixels sombres à gauche de chaque option). Aucun service en ligne, pas d'API Anthropic.
+- **Écran de vérification obligatoire** : PDF à gauche, champs proposés à droite, réponses douteuses en orange. Rien n'est enregistré avant « Valider ». Un champ déjà rempli n'est remplacé que si « Remplacer » est coché.
+- Dossier existant (mêmes nom, prénom, date de naissance) : proposé pour être complété ; sinon création (cabinet à choisir).
+- Correspondance : identité et contacts, « Adressé par » (prise de RDV), n° de sécurité sociale, adresse, mutuelle et profession (onglet Devis & semestres → assuré, utilisés pour la DEP), questionnaire (motifs, antécédents, ORL, accords, engagements, signature, questions propres à la version adulte), alerte du dossier (allergie, médicaments, problème de santé, sauf « RAS »/« non », ajoutés à l'alerte existante).
+- Refus d'enregistrement de la consultation : avertissement à côté du bouton « Démarrer » de la consultation de ce patient.
+- Le PDF est rangé chiffré dans le dossier (« Ouvrir le PDF » dans l'onglet Patient).
+- Tests : faux questionnaires générés (patients inventés), jamais de vrais.

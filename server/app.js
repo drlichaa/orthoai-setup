@@ -26,11 +26,14 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const TYPES_IMAGES = ["image/jpeg", "image/png", "image/webp"];
 // Empreintes 3D (3Shape…) : fichiers STL, plus volumineux.
 const TYPE_STL = "model/stl";
+// Documents rangés dans le dossier (questionnaire médical WeClever…).
+const TYPE_PDF = "application/pdf";
 const MAX_STL_BYTES = 150 * 1024 * 1024;
 
 const TYPES_MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
@@ -148,8 +151,8 @@ async function routePatients(historique, req, res, url, { genererPdf } = {}) {
   // Image envoyée telle quelle (corps binaire), chiffrée à l'enregistrement.
   if (methode === "POST" && url === "/api/patients/media") {
     const type = (req.headers["content-type"] || "").split(";")[0];
-    if (!TYPES_IMAGES.includes(type) && type !== TYPE_STL) {
-      throw new ErreurHistorique(415, "Format non pris en charge (JPG, PNG, WebP ou STL).");
+    if (!TYPES_IMAGES.includes(type) && type !== TYPE_STL && type !== TYPE_PDF) {
+      throw new ErreurHistorique(415, "Format non pris en charge (JPG, PNG, WebP, STL ou PDF).");
     }
     const octets = await readBody(req, type === TYPE_STL ? MAX_STL_BYTES : MAX_IMAGE_BYTES);
     return { media: historique.ajouterMedia(parametres.get("patient"), parametres.get("nom"), type, octets) };

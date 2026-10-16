@@ -413,6 +413,8 @@ export function creerHistorique(fichier) {
       gestion: objet(brut.gestion),
       // Dernier état lu dans l'export OrthoFast (DEP, règlements…), remplacé à chaque import.
       orthofast: objet(brut.orthofast),
+      // Questionnaire médical importé (WeClever), validé par le praticien.
+      questionnaire: objet(brut.questionnaire),
       // Séries de photos, radios ou empreintes 3D : élément du scénario → média.
       series: liste(brut.series)
         .filter((s) => /^[\w-]{1,100}$/.test(s?.id || ""))

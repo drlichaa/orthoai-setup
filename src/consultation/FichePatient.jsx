@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import ImportQuestionnaire from "./ImportQuestionnaire.jsx";
+import QuestionnaireMedical from "./QuestionnaireMedical.jsx";
 import Parcours from "./Parcours.jsx";
 import EnvoiMail from "./EnvoiMail.jsx";
 import { modeleCourrier } from "./messagerie.js";
@@ -265,6 +267,9 @@ export default function FichePatient({
   const [apercu, setApercu] = useState(null);
   const [onglet, setOnglet] = useState(ongletInitial || "clinique");
   const [courrierEnvoye, setCourrierEnvoye] = useState(null);
+  // Import du questionnaire WeClever, puis relecture du dossier (version).
+  const [importQuestionnaire, setImportQuestionnaire] = useState(false);
+  const [version, setVersion] = useState(0);
   // Courrier du dossier en cours d'impression (index).
   const [courrierImprime, setCourrierImprime] = useState(null);
   // Planche photos en cours d'impression.
@@ -295,7 +300,7 @@ export default function FichePatient({
     return () => {
       actif = false;
     };
-  }, [patientId]);
+  }, [patientId, version]);
 
   async function enregistrer(suivant) {
     clearTimeout(minuteur.current);
@@ -443,7 +448,7 @@ export default function FichePatient({
   const scenarios = cabinet?.scenarios?.length ? cabinet.scenarios : SCENARIOS_PAR_DEFAUT;
   // Images hors séries (anciennes, radios annotées…) et sans les empreintes 3D.
   const mediasSeries = new Set(patient.series.flatMap((s) => Object.values(s.elements).map((e) => e.media)));
-  const images = patient.medias.filter((m) => m.type !== "model/stl");
+  const images = patient.medias.filter((m) => (m.type || "image/jpeg").startsWith("image/"));
   const autresImages = images.filter((m) => !mediasSeries.has(m.id));
 
   return (
@@ -881,6 +886,10 @@ export default function FichePatient({
 
         {onglet === "patient" && (
           <>
+            <QuestionnaireMedical
+              questionnaire={patient.questionnaire}
+              onImporter={() => setImportQuestionnaire(true)}
+            />
             <DonneesOrthofast orthofast={patient.orthofast} />
             <section className="cr-carte">
               <h2>Identité</h2>
@@ -1103,6 +1112,17 @@ export default function FichePatient({
         />
       )}
       {documentImprime}
+      {importQuestionnaire && (
+        <ImportQuestionnaire
+          cabinet={cabinet}
+          patientId={patientId}
+          onFermer={() => setImportQuestionnaire(false)}
+          onTermine={() => {
+            setImportQuestionnaire(false);
+            setVersion((v) => v + 1);
+          }}
+        />
+      )}
       {courrierEnvoye !== null && patient.courriers[courrierEnvoye] && (
         <EnvoiMail
           patient={patient}

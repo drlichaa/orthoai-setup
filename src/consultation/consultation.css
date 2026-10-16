@@ -641,3 +641,22 @@ select.oa-a-choisir { border-color: #f79009; background: #fffaeb; }
 .oa-parcours-derogation textarea { width: 100%; font: inherit; }
 .oa-parcours > .cr-alerte { margin: 0 0 8px; }
 .oa-parcours .oa-parcours-contenu > .cr-actions { margin-top: 8px; }
+
+/* Import du questionnaire médical WeClever */
+.oa-questionnaire { width: min(1400px, 100%); }
+.oa-q-grille { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.oa-q-pdf { position: sticky; top: 0; max-height: 80vh; overflow-y: auto; border: 1px solid var(--cr-bord); border-radius: 10px; background: #f1f5f9; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.oa-q-pdf img { width: 100%; background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15); }
+.oa-q-champs { max-height: 80vh; overflow-y: auto; padding-right: 4px; }
+.oa-q-champs h3 { margin: 16px 0 6px; font-size: 1rem; }
+.oa-q-table th { width: 38%; font-weight: 600; vertical-align: top; }
+.oa-q-table input:not([type]), .oa-q-table input[type="text"], .oa-q-table input[type="date"], .oa-q-table select, .oa-q-table textarea { width: 100%; font-weight: 400; }
+.oa-q-table tr.oa-a-verifier th, .oa-q-table tr.oa-a-verifier td { background: #fff4e5; }
+.oa-q-table tr.oa-a-verifier th { color: #b54708; }
+.oa-q-legende { background: #fff4e5; color: #b54708; padding: 0 4px; border-radius: 4px; }
+.oa-q-remplacer { display: block; margin-top: 4px; font-size: 0.85rem; color: #b54708; }
+.oa-q-cible { border: 1px solid var(--cr-bord); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
+.oa-q-alerte { width: 100%; font: inherit; }
+@media (max-width: 900px) { .oa-q-grille { grid-template-columns: 1fr; } .oa-q-pdf, .oa-q-champs { max-height: none; position: static; } }
+.oa-q-refus { color: var(--cr-danger, #b42318); font-weight: 700; }
+.oa-refus-micro { margin: 0 0 0 8px; padding: 4px 10px; font-weight: 600; }
